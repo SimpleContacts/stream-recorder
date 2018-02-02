@@ -1,0 +1,1 @@
+docker run -p 8888:8888 -e GST_DEBUG="3,Kurento*:4,kms*:4" -v $(pwd)/kurento/recordings:/var/kurento/ mediaserver /entrypoint.sh
