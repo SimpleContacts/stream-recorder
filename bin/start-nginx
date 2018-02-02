@@ -1,0 +1,2 @@
+# setup nginx proxy
+nginx -c $(pwd)/nginx.conf
