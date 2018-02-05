@@ -2,7 +2,7 @@
   "scripts": {
     "start": "nodemon ./app.js --exec babel-node",
     "test": "eslint . && flow check && jest .",
-    "start:prod": "pm2 --no-daemon start pm2.config.js"
+    "start:prod": "pm2 start pm2.config.js"
   },
   "dependencies": {
     "chalk": "^2.3.0",
