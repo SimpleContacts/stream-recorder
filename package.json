@@ -9,6 +9,7 @@
     "express": "^4.16.2",
     "guid": "^0.0.12",
     "kurento-client": "6.6.0",
+    "pm2": "^2.9.3",
     "ws": "^4.0.0"
   },
   "devDependencies": {
