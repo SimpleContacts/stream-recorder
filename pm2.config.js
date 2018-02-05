@@ -12,10 +12,5 @@ module.exports = {
         NODE_ENV: 'production',
       },
     },
-    {
-      name: 'kurento-media-server',
-      script: './bin/start-kurento.js',
-      // instances: 'max',
-    },
   ],
 };
