@@ -276,6 +276,6 @@ function onIceCandidate(sessionId, _candidate) {
   }
 }
 
-app.get(function(req, res) {
+app.use(function(req, res) {
   res.send('hello world');
 });
