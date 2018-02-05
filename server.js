@@ -275,7 +275,6 @@ function onIceCandidate(sessionId, _candidate) {
     candidatesQueue[sessionId].push(candidate);
   }
 }
-
-app.use(function(req, res) {
-  res.send('hello world');
+app.get('/ping', function(req, res) {
+  res.send('pong');
 });
