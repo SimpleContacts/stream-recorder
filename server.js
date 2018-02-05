@@ -8,8 +8,8 @@ var chalk = require('chalk');
 var guid = require('guid');
 
 var options = {
-  key: fs.readFileSync('keys/server.key'),
-  cert: fs.readFileSync('keys/server.crt'),
+  // key: fs.readFileSync('keys/server.key'),
+  // cert: fs.readFileSync('keys/server.crt'),
 };
 
 var app = express();
