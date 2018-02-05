@@ -38,7 +38,7 @@ var wss = new ws.Server({
  * Management of WebSocket messages
  */
 wss.on('connection', function(ws) {
-  let sessionId = guid.create().value;
+  var sessionId = guid.create().value;
 
   console.log('Made connection with ' + sessionId);
 
@@ -58,8 +58,6 @@ wss.on('connection', function(ws) {
 
     switch (message.id) {
       case 'start':
-        //TODO better session management
-        sessionId = 'me';
         console.log(chalk.bgBlue('this is where we we would call start'));
         start(sessionId, ws, message.sdpOffer, function(error, sdpAnswer) {
           if (error) {
