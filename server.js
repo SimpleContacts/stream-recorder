@@ -31,7 +31,7 @@ var wss = new ws.Server({
  * Management of WebSocket messages
  */
 wss.on('connection', function(ws) {
-  var sessionId = guid.create().value;
+  var sessionId = 'me';
 
   console.log('Made connection with ' + sessionId);
 
