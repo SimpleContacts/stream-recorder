@@ -25,9 +25,11 @@ var kurentoClient = null;
  * Server startup
  */
 
-var server = https.createServer(options, app).listen(8443, function() {
-  console.log('Kurento Tutorial should work this time');
-});
+// var server = https.createServer(options, app).listen(8443, function() {
+//   console.log('Kurento Tutorial should work this time');
+// });
+
+app.listen(8443);
 
 // var wss = new ws.Server({
 //   server: server,
