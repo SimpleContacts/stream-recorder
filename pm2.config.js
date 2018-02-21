@@ -2,9 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'orchestration-server',
-      script: './server.js',
-      // watch: true,
-      // instances: 'max',
+      script: './server.js --exec babel-node',
+      watch: true,
       env: {
         NODE_ENV: 'development',
       },
