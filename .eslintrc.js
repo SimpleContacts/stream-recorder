@@ -1,3 +1,3 @@
 module.exports = {
-  // extends: '@simple-contacts',
+  extends: '@simple-contacts',
 };
