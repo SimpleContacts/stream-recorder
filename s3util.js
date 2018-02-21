@@ -1,7 +1,7 @@
 import AWS from 'aws-sdk';
-import conf from './config';
 import shortid from 'shortid';
 import moment from 'moment';
+import conf from './config';
 
 async function uploadS3(video, key) {
   const params = {
