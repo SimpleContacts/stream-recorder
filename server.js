@@ -197,7 +197,7 @@ function stop(sessionId, connection, videoKey) {
     global.recorder.stop();
 
     // the recording was saved to the machine at /var/kurento/myrecording.webm
-    const filepath = path.join('/tmp', 'kurento', videoKey);
+    const filepath = path.join('/var', 'kurento', videoKey);
     // read the recording
     fs.readFile(filepath, (err, data) => {
       if (err) {
