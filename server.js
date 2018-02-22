@@ -15,8 +15,6 @@ const app = express();
  */
 const sessions = {};
 const candidatesQueue = {};
-const videoKey = createS3Key('webm');
-const fileUri = `/${videoKey}`;
 let kurentoClient = null;
 
 /*
@@ -55,11 +53,11 @@ function getKurentoClient(callback) {
 
 // Create the Media Elements and connect them. For our purposes, we need both a
 // webRtcEndpoint and a recorder
-function createMediaElements(pipeline, _ws, callback) {
+function createMediaElements(pipeline, _ws, videoKey, callback) {
   const elements = [
     {
       type: 'RecorderEndpoint',
-      params: { uri: fileUri },
+      params: { uri: `/${videoKey}` },
     },
     {
       type: 'WebRtcEndpoint',
@@ -97,7 +95,7 @@ function sendError(message, connection) {
   return sendMessage({ id: 'error', message }, connection);
 }
 
-function start(sessionId, _ws, sdpOffer, callback) {
+function start(sessionId, _ws, sdpOffer, videoKey, callback) {
   if (!sessionId) {
     return callback('Cannot use undefined sessionId');
   }
@@ -112,89 +110,94 @@ function start(sessionId, _ws, sdpOffer, callback) {
         return callback(pipelineError);
       }
 
-      return createMediaElements(pipeline, _ws, (elementsError, elements) => {
-        if (elementsError) {
-          pipeline.release();
-          return callback(elementsError);
-        }
-        const [recorder, webRtcEndpoint] = elements;
-
-        global.recorder = recorder;
-
-        if (candidatesQueue[sessionId]) {
-          while (candidatesQueue[sessionId].length) {
-            const candidate = candidatesQueue[sessionId].shift();
-            webRtcEndpoint.addIceCandidate(candidate);
-          }
-        }
-
-        return connectMediaElements(webRtcEndpoint, connectError => {
-          if (connectError) {
+      return createMediaElements(
+        pipeline,
+        _ws,
+        videoKey,
+        (elementsError, elements) => {
+          if (elementsError) {
             pipeline.release();
-            return callback(error);
+            return callback(elementsError);
+          }
+          const [recorder, webRtcEndpoint] = elements;
+
+          global.recorder = recorder;
+
+          if (candidatesQueue[sessionId]) {
+            while (candidatesQueue[sessionId].length) {
+              const candidate = candidatesQueue[sessionId].shift();
+              webRtcEndpoint.addIceCandidate(candidate);
+            }
           }
 
-          webRtcEndpoint.on('OnIceCandidate', event => {
-            const candidate = kurento.getComplexType('IceCandidate')(
-              event.candidate,
-            );
-            sendMessage(
-              {
-                id: 'iceCandidate',
-                candidate,
-              },
-              _ws,
-            );
-          });
-
-          webRtcEndpoint.processOffer(sdpOffer, (offerError, sdpAnswer) => {
-            if (offerError) {
+          return connectMediaElements(webRtcEndpoint, connectError => {
+            if (connectError) {
               pipeline.release();
-              return callback(offerError);
+              return callback(error);
             }
 
-            sessions[sessionId] = {
-              pipeline,
-              webRtcEndpoint,
-            };
-            return callback(null, sdpAnswer);
-          });
+            webRtcEndpoint.on('OnIceCandidate', event => {
+              const candidate = kurento.getComplexType('IceCandidate')(
+                event.candidate,
+              );
+              sendMessage(
+                {
+                  id: 'iceCandidate',
+                  candidate,
+                },
+                _ws,
+              );
+            });
 
-          webRtcEndpoint.gatherCandidates(candidatesError => {
-            if (candidatesError) {
-              return callback(candidatesError);
-            }
-            return undefined;
-          });
-
-          return _kurentoClient.connect(
-            webRtcEndpoint,
-            recorder,
-            clientConnectError => {
-              if (clientConnectError) {
-                return callback(clientConnectError);
+            webRtcEndpoint.processOffer(sdpOffer, (offerError, sdpAnswer) => {
+              if (offerError) {
+                pipeline.release();
+                return callback(offerError);
               }
-              return recorder.record(recordError => {
-                if (recordError) {
-                  return callback(recordError);
+
+              sessions[sessionId] = {
+                pipeline,
+                webRtcEndpoint,
+              };
+              return callback(null, sdpAnswer);
+            });
+
+            webRtcEndpoint.gatherCandidates(candidatesError => {
+              if (candidatesError) {
+                return callback(candidatesError);
+              }
+              return undefined;
+            });
+
+            return _kurentoClient.connect(
+              webRtcEndpoint,
+              recorder,
+              clientConnectError => {
+                if (clientConnectError) {
+                  return callback(clientConnectError);
                 }
-                return undefined;
-              });
-            },
-          );
-        });
-      });
+                return recorder.record(recordError => {
+                  if (recordError) {
+                    return callback(recordError);
+                  }
+                  return undefined;
+                });
+              },
+            );
+          });
+        },
+      );
     });
   });
 }
 
-function stop(sessionId, connection) {
+function stop(sessionId, connection, videoKey) {
   if (sessions[sessionId]) {
     const pipeline = sessions[sessionId].pipeline;
     global.recorder.stop();
 
-    // the recording was saved to the machine at /var/kurento/merecording.webm
-    const filepath = path.join('/var', 'kurento', fileUri);
+    // the recording was saved to the machine at /var/kurento/myrecording.webm
+    const filepath = path.join('/var', 'kurento', videoKey);
     // read the recording
     fs.readFile(filepath, (err, data) => {
       if (err) {
@@ -257,6 +260,7 @@ function onIceCandidate(sessionId, _candidate) {
  */
 wss.on('connection', wsConnection => {
   const sessionId = guid.create().value;
+  const videoKey = createS3Key('webm');
 
   wsConnection.on('error', () => {
     stop(sessionId);
@@ -271,22 +275,28 @@ wss.on('connection', wsConnection => {
 
     switch (message.id) {
       case 'start':
-        start(sessionId, wsConnection, message.sdpOffer, (error, sdpAnswer) => {
-          if (error) {
-            return sendError(error, wsConnection);
-          }
-          return sendMessage(
-            {
-              id: 'startResponse',
-              sdpAnswer,
-            },
-            wsConnection,
-          );
-        });
+        start(
+          sessionId,
+          wsConnection,
+          message.sdpOffer,
+          videoKey,
+          (error, sdpAnswer) => {
+            if (error) {
+              return sendError(error, wsConnection);
+            }
+            return sendMessage(
+              {
+                id: 'startResponse',
+                sdpAnswer,
+              },
+              wsConnection,
+            );
+          },
+        );
         break;
 
       case 'stop':
-        stop(sessionId, wsConnection);
+        stop(sessionId, wsConnection, videoKey);
         break;
 
       case 'onIceCandidate':
