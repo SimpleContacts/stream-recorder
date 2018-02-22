@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/no-dynamic-require
-const conf = require(`${__dirname}/config/${
+const conf = require(`${__dirname}/${
   process.env.NODE_ENV ? process.env.NODE_ENV : 'development'
 }.js`);
 
