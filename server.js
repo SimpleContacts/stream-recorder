@@ -57,7 +57,7 @@ function createMediaElements(pipeline, _ws, videoKey, callback) {
   const elements = [
     {
       type: 'RecorderEndpoint',
-      params: { uri: `file:///tmp/${videoKey}` },
+      params: { uri: `file:///tmp/kurento/${videoKey}` },
     },
     {
       type: 'WebRtcEndpoint',
