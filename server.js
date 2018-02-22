@@ -9,8 +9,8 @@ import path from 'path';
 import { uploadS3, createS3Key } from './s3util';
 
 const options = {
-  key: fs.readFileSync('keys/server.key'),
-  cert: fs.readFileSync('keys/server.crt'),
+  key: fs.readFileSync('config/server.key'),
+  cert: fs.readFileSync('config/server.crt'),
 };
 
 const app = express();
