@@ -215,6 +215,8 @@ function stop(sessionId, connection) {
             },
             connection,
           );
+          // delete video from filesystem now that it is saved in s3
+          fs.unlinkSync(filepath);
         })
         .catch(e => {
           sendError(
