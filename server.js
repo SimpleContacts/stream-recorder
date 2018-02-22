@@ -1,17 +1,12 @@
 import express from 'express';
 import fs from 'fs';
 import guid from 'guid';
-import https from 'https';
+import http from 'http';
 import kurento from 'kurento-client';
 import ws from 'ws';
 import path from 'path';
 
 import { uploadS3, createS3Key } from './s3util';
-
-const options = {
-  key: fs.readFileSync('config/server.key'),
-  cert: fs.readFileSync('config/server.crt'),
-};
 
 const app = express();
 
@@ -27,7 +22,7 @@ let kurentoClient = null;
 /*
  * Server startup
  */
-const server = https.createServer(options, app).listen(8443);
+const server = http.createServer(app);
 
 const wss = new ws.Server({
   server,
@@ -302,3 +297,10 @@ wss.on('connection', wsConnection => {
     }
   });
 });
+
+// health check
+app.get('/ping', (req, res) => {
+  res.send('pong');
+});
+
+server.listen(8443);
