@@ -6,7 +6,7 @@ import kurento from 'kurento-client';
 import ws from 'ws';
 import path from 'path';
 
-import { uploadS3, createS3Key } from './s3util';
+import { uploadS3, createS3Key, getVideoUrl } from './s3util';
 
 const app = express();
 
@@ -214,7 +214,7 @@ function stop(sessionId, connection, videoKey) {
           sendMessage(
             {
               id: 'uploadSuccess',
-              videoKey,
+              url: getVideoUrl(videoKey),
             },
             connection,
           );
