@@ -27,4 +27,10 @@ function createS3Key(fileExtension) {
 
   return `${date}/kurento${epoch}-${rando}.${fileExtension}`;
 }
+
+function getVideoUrl(key) {
+  const bucket = conf.get('aws_s3_exam_bucket');
+  return `https://${bucket}.s3.dualstack.us-east-1.amazonaws.com/${key}`;
+}
+
 export { uploadS3, createS3Key };
