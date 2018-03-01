@@ -18,6 +18,11 @@ async function uploadS3(video, key) {
   const s3 = new AWS.S3();
   const asyncUpload = s3.upload(params).promise();
   await asyncUpload;
+  return s3.getSignedUrl('getObject', {
+    Bucket: conf.get('aws_s3_exam_bucket'),
+    Key: key,
+    600,
+  });
 }
 
 function createS3Key(fileExtension) {
@@ -27,4 +32,6 @@ function createS3Key(fileExtension) {
 
   return `${date}/kurento${epoch}-${rando}.${fileExtension}`;
 }
+
+
 export { uploadS3, createS3Key };
