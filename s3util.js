@@ -21,7 +21,7 @@ async function uploadS3(video, key) {
   return s3.getSignedUrl('getObject', {
     Bucket: conf.get('aws_s3_exam_bucket'),
     Key: key,
-    600,
+    Expires: 600,
   });
 }
 
