@@ -22,9 +22,13 @@ Here are the messages that it sends:
 
 * 'error' (includes a message)
 * 'iceCandidate' (includes a candidate)
-* 'uploadSuccess' (includes a videoKey)
+* 'uploadSuccess' (includes a videoUrl)
 * 'startResponse' (includes an sdpAnswer)
 
 The code mostly lives in server.js. To test, run `yarn test`. To run it locally, don't run it locally. Just communicate with it at **video.simplecontacts.com**.
+
+Other endpoints:
+* get request to `/ping` returns `'pong'` (health check)
+* get request to `/sessions` returns current number of active sessions (for purposes of not interfering with sessions during deploy)
 
 This project was heavily influenced by this [tutorial](https://github.com/Kurento/kurento-tutorial-node/tree/master/kurento-hello-world).

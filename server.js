@@ -15,6 +15,7 @@ const app = express();
  */
 const sessions = {};
 const candidatesQueue = {};
+const recorders = {};
 let kurentoClient = null;
 
 /*
@@ -120,8 +121,8 @@ function start(sessionId, _ws, sdpOffer, videoKey, callback) {
             return callback(elementsError);
           }
           const [recorder, webRtcEndpoint] = elements;
-
-          global.recorder = recorder;
+          // save a pointer to the recorder for this session
+          recorders[sessionId] = recorder;
 
           if (candidatesQueue[sessionId]) {
             while (candidatesQueue[sessionId].length) {
@@ -194,7 +195,7 @@ function start(sessionId, _ws, sdpOffer, videoKey, callback) {
 function stop(sessionId, connection, videoKey) {
   if (sessions[sessionId]) {
     const pipeline = sessions[sessionId].pipeline;
-    global.recorder.stop();
+    recorders[sessionId].stop();
 
     // the recording was saved to the machine at /var/kurento/myrecording.webm
     const filepath = path.join('/tmp', 'kurento', videoKey);
@@ -232,6 +233,7 @@ function stop(sessionId, connection, videoKey) {
 
     delete sessions[sessionId];
     delete candidatesQueue[sessionId];
+    delete recorders[sessionId];
   }
 }
 
@@ -313,6 +315,11 @@ wss.on('connection', wsConnection => {
 // health check
 app.get('/ping', (req, res) => {
   res.send('pong');
+});
+
+// fetch number of active sessions, since re-deploying this server will mess up active sessions
+app.get('/sessions', (req, res) => {
+  res.send(Object.keys(sessions).length);
 });
 
 server.listen(8443);
