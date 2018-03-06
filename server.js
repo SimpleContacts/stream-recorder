@@ -6,7 +6,7 @@ import kurento from 'kurento-client';
 import ws from 'ws';
 import path from 'path';
 
-import { uploadS3, createS3Key, getVideoUrl } from './s3util';
+import { uploadS3, createS3Key } from './s3util';
 
 const app = express();
 
@@ -208,13 +208,13 @@ function stop(sessionId, connection, videoKey) {
       }
       // upload the recording to s3
       uploadS3(data, videoKey)
-        .then(() => {
+        .then((videoUrl) => {
           // inform client that s3 upload was successful, include the video key
           // for future retrieval from s3
           sendMessage(
             {
               id: 'uploadSuccess',
-              url: getVideoUrl(videoKey),
+              videoUrl,
             },
             connection,
           );
