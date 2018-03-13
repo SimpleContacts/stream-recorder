@@ -1,3 +1,5 @@
+// @flow
+
 import express from 'express';
 import fs from 'fs';
 import guid from 'guid';
@@ -209,7 +211,7 @@ function stop(sessionId, connection, videoKey) {
       }
       // upload the recording to s3
       uploadS3(data, videoKey)
-        .then((videoUrl) => {
+        .then(videoUrl => {
           // inform client that s3 upload was successful, include the video key
           // for future retrieval from s3
           sendMessage(
