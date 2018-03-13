@@ -1,3 +1,5 @@
+// @flow
+
 import AWS from 'aws-sdk';
 import shortid from 'shortid';
 import moment from 'moment';
@@ -8,7 +10,7 @@ function getVideoUrl(key) {
   return `https://${bucket}.s3.dualstack.us-east-1.amazonaws.com/${key}`;
 }
 
-async function uploadS3(video, key) {
+async function uploadS3(video: string | Buffer, key: string) {
   const params = {
     Bucket: conf.get('aws_s3_exam_bucket'),
     Key: key,
@@ -26,7 +28,7 @@ async function uploadS3(video, key) {
   return getVideoUrl(key);
 }
 
-function createS3Key(fileExtension) {
+function createS3Key(fileExtension: string): string {
   const date = moment().format('YYYY-MM-DD');
   const epoch = +new Date();
   const rando = shortid.generate();

@@ -1,12 +1,14 @@
 {
   "scripts": {
     "start": "nodemon ./server.js --exec babel-node",
+    "start-kurento": "bin/start-kurento",
     "test": "eslint . && flow check && jest .",
     "start:prod": "pm2 start pm2.config.js"
   },
   "dependencies": {
     "aws-sdk": "^2.200.0",
     "chalk": "^2.3.0",
+    "decoders": "^1.4.6",
     "express": "^4.16.2",
     "guid": "^0.0.12",
     "kurento-client": "6.6.0",
