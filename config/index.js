@@ -1,8 +1,21 @@
-// eslint-disable-next-line import/no-dynamic-require
-const conf = require(`${__dirname}/${
-  process.env.NODE_ENV ? process.env.NODE_ENV : 'development'
-}.js`);
+// @flow
+/* eslint-disable import/no-dynamic-require */
 
-module.exports = {
-  get: key => conf[key],
+import { guard, string, object } from 'decoders';
+
+const confDecoder = object({
+  // These fields are used to upload our video to s3.
+  aws_s3_exam_bucket: string,
+  aws_access_key: string,
+  aws_secret_key: string,
+});
+
+// Lets make sure our config has everything we expect.
+const conf = guard(confDecoder)(
+  // $FlowFixMe
+  require(`${__dirname}/${process.env.NODE_ENV || 'development'}.js`).default,
+);
+
+export default {
+  get: (key: string) => conf[key],
 };
