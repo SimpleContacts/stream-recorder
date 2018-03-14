@@ -1,7 +1,9 @@
 {
   "scripts": {
-    "start": "nodemon ./server.js --exec babel-node",
+    "start": "",
+    "start-web": "pm2 --no-daemon start pm2.config.js",
     "start-kurento": "bin/start-kurento",
+    "start-nginx": "bin/start-nginx",
     "test": "eslint . && flow check && jest .",
     "start:prod": "pm2 start pm2.config.js"
   },
@@ -15,12 +17,15 @@
     "moment": "^2.20.1",
     "pm2": "^2.9.3",
     "shortid": "^2.2.8",
+    "webrtc-adapter": "^6.1.4",
     "ws": "^4.0.0"
   },
   "devDependencies": {
     "@simple-contacts/babel-preset-sc": "^0.2.1",
     "@simple-contacts/eslint-config": "^0.1.5",
     "@simple-contacts/sc-scripts": "^0.4.1",
-    "nodemon": "^1.14.11"
+    "webpack": "^4.1.1",
+    "webpack-cli": "^2.0.11",
+    "webpack-dev-server": "^3.1.1"
   }
 }
