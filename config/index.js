@@ -9,6 +9,7 @@ const confDecoder = object({
   aws_access_key: string,
   aws_secret_key: string,
   recordings_path: optional(string),
+  sentryDsn: optional(string),
 });
 
 // Lets make sure our config has everything we expect.

@@ -31,8 +31,16 @@ http {
     ssl_certificate      $PWD/dummyKeys/server.crt;
     ssl_certificate_key  $PWD/dummyKeys/server.key;
 
-    # Orchestration websocket connection.
+    # Public websocket api.
     location /api {
+      proxy_pass http://orch;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade \$http_upgrade;
+      proxy_set_header Connection "upgrade";
+    }
+
+    # Secure admin websocket api.
+    location /admin/api {
       proxy_pass http://orch;
       proxy_http_version 1.1;
       proxy_set_header Upgrade \$http_upgrade;

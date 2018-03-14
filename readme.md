@@ -41,3 +41,11 @@ This project was heavily influenced by this [tutorial](https://github.com/Kurent
 3. In a new terminal window, run `yarn start`, to run server (8443) and web client (8080).
 4. In a new terminal window, run `yarn start-nginx`, to reverse proxy all our services with SSL using dummy key.
 5. Open https://localhost:8088/admin to test
+
+### Paths in Production
+
+/api/ping -> Health check
+/api/client.js -> client-side lib
+/api/recorder -> Websocket path
+/admin -> Secured with basic auth, shows a smoke test.
+/admin/sessions -> shows all sessions currently connected.

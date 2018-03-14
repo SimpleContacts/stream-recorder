@@ -4,6 +4,11 @@
     "start-web": "pm2 --no-daemon start pm2.config.js",
     "start-kurento": "bin/start-kurento",
     "start-nginx": "bin/start-nginx",
+    "bundle": "yarn bundle:admin && yarn bundle:lib",
+    "bundle:admin":
+      "webpack --mode production --output-path dist/admin --output-filename index.js client/admin.js",
+    "bundle:lib":
+      "./node_modules/.bin/webpack --output-library StreamRecorder --output-library-target umd --mode production --output-path dist/api --output-filename client.js client/lib.js",
     "test": "eslint . && flow check && jest .",
     "start:prod": "pm2 start pm2.config.js"
   },
@@ -13,9 +18,10 @@
     "decoders": "^1.4.6",
     "express": "^4.16.2",
     "guid": "^0.0.12",
-    "kurento-client": "6.6.0",
+    "kurento-client": "https://github.com/Kurento/kurento-client-js#master",
     "moment": "^2.20.1",
     "pm2": "^2.9.3",
+    "raven": "^2.4.2",
     "shortid": "^2.2.8",
     "webrtc-adapter": "^6.1.4",
     "ws": "^4.0.0"
@@ -24,6 +30,7 @@
     "@simple-contacts/babel-preset-sc": "^0.2.1",
     "@simple-contacts/eslint-config": "^0.1.5",
     "@simple-contacts/sc-scripts": "^0.4.1",
+    "flow-bin": "^0.67.1",
     "webpack": "^4.1.1",
     "webpack-cli": "^2.0.11",
     "webpack-dev-server": "^3.1.1"
