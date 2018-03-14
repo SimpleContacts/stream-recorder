@@ -34,8 +34,10 @@ Other endpoints:
 
 This project was heavily influenced by this [tutorial](https://github.com/Kurento/kurento-tutorial-node/tree/master/kurento-hello-world).
 
-### Running Kurento locally
+### Running locally
 
-1. Make sure you have docker and nginx (for a proxy) installed. Download Docker from website and you can install nginx with homebrew: `brew install nginx`.
-2. Run `yarn start-kurento`
-3. Run `sudo nginx -c $(pwd)/__generated__/nginx.conf`
+1. Download and install Docker: https://www.docker.com/community-edition#/download . Install nginx with homebrew `brew install nginx`
+2. Run `yarn start-kurento` (8888).
+3. In a new terminal window, run `yarn start`, to run server (8443) and web client (8080).
+4. In a new terminal window, run `yarn start-nginx`, to reverse proxy all our services with SSL using dummy key.
+5. Open https://localhost:8088/admin to test

@@ -2,43 +2,6 @@
 
 set -e
 
-# Generate our nginx.conf, use sed for now.
-rm -rf $PWD/__generated__
-mkdir $PWD/__generated__
-cat > $PWD/__generated__/nginx.conf << EOF
-worker_processes  1;
-
-events {
-    worker_connections  1024;
-}
-
-http {
-  upstream websocket {
-    server localhost:8888;
-  }
-
-  server {
-    listen       8889 ssl;
-    server_name  localhost;
-
-    ssl_certificate      $PWD/dummyKeys/server.crt;
-    ssl_certificate_key  $PWD/dummyKeys/server.key;
-
-    location / {
-      proxy_pass http://websocket;
-      proxy_http_version 1.1;
-      proxy_set_header Upgrade \$http_upgrade;
-      proxy_set_header Connection "upgrade";
-    }
-  }
-}
-EOF
-
-echo ""
-echo "Run nginx as a reverse proxy via 'sudo nginx -c $(pwd)/__generated__/nginx.conf' "
-echo "To stop, run 'sudo nginx -s stop'"
-echo ""
-
 # # Start kurento
 docker build ./kurento -t mediaserver
-docker run -p 8888:8888 -e GST_DEBUG="3,Kurento*:4,kms*:4" -v $(pwd)/kurento/recordings:/var/kurento/ mediaserver /entrypoint.sh
+docker run -p 8888:8888 -e GST_DEBUG="3,Kurento*:4,kms*:4" -v $(pwd)/recordings:/tmp/kurento/ mediaserver /entrypoint.sh

@@ -7,10 +7,17 @@ import http from 'http';
 import kurento from 'kurento-client';
 import ws from 'ws';
 import path from 'path';
+import conf from '../config';
 
-import { uploadS3, createS3Key } from './s3util';
+import { upload, createS3Key } from './s3';
+
+const RECORDINGS_PATH = conf.get('recordings_path') || '/tmp/kurento';
 
 const app = express();
+const api = express.Router();
+const admin = express.Router();
+app.use('/api/', api);
+app.use('/admin/', api);
 
 /*
  * Definition of global variables.
@@ -27,7 +34,7 @@ const server = http.createServer(app);
 
 const wss = new ws.Server({
   server,
-  path: '/recorder',
+  path: '/api/recorder',
 });
 
 /*
@@ -95,6 +102,7 @@ function sendMessage(message, connection) {
 
 // Util function to send error message via websocket
 function sendError(message, connection) {
+  console.error(message);
   return sendMessage({ id: 'error', message }, connection);
 }
 
@@ -200,7 +208,7 @@ function stop(sessionId, connection, videoKey) {
     recorders[sessionId].stop();
 
     // the recording was saved to the machine at /var/kurento/myrecording.webm
-    const filepath = path.join('/tmp', 'kurento', videoKey);
+    const filepath = path.join(RECORDINGS_PATH, videoKey || 'yo');
     // read the recording
     fs.readFile(filepath, (err, data) => {
       if (err) {
@@ -210,7 +218,7 @@ function stop(sessionId, connection, videoKey) {
         );
       }
       // upload the recording to s3
-      uploadS3(data, videoKey)
+      upload(data, videoKey)
         .then(videoUrl => {
           // inform client that s3 upload was successful, include the video key
           // for future retrieval from s3
@@ -315,12 +323,12 @@ wss.on('connection', wsConnection => {
 });
 
 // health check
-app.get('/ping', (req, res) => {
+api.get('/ping', (req, res) => {
   res.send('pong');
 });
 
 // fetch number of active sessions, since re-deploying this server will mess up active sessions
-app.get('/sessions', (req, res) => {
+admin.get('/sessions', (req, res) => {
   res.send(Object.keys(sessions).length);
 });
 
