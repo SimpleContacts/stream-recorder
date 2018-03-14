@@ -4,7 +4,8 @@ module.exports = {
       name: 'orchestration-server',
       script: './server/app.js',
       interpreter: './node_modules/.bin/babel-node',
-      watch: './server',
+      watch: true,
+      ignore_watch: ['node_modules', 'recordings'],
     },
     process.env.NODE_ENV !== 'production'
       ? {

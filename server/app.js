@@ -1,10 +1,13 @@
+/* eslint-disable consistent-return */
 // @flow
 
 import express from 'express';
+import { promisify } from 'util';
 import fs from 'fs';
 import guid from 'guid';
 import http from 'http';
 import kurento from 'kurento-client';
+import Raven from 'raven';
 import ws from 'ws';
 import path from 'path';
 import conf from '../config';
@@ -13,11 +16,33 @@ import { upload, createS3Key } from './s3';
 
 const RECORDINGS_PATH = conf.get('recordings_path') || '/tmp/kurento';
 
+const readFile = promisify(fs.readFile);
+const unlink = promisify(fs.unlink);
+
 const app = express();
 const api = express.Router();
-const admin = express.Router();
+const adminApi = express.Router();
 app.use('/api/', api);
-app.use('/admin/', api);
+app.use('/admin/api/', adminApi);
+
+// Admin page.
+app.get('/admin', (req, res) => {
+  res.send(`<body><script src="/admin/index.js"></script></body>`);
+});
+
+// Global Error catching.
+// NOTE If no DSN is provided here, there are no side-effects.
+Raven.config(conf.get('sentry_dsn'), {
+  autoBreadcrumbs: true,
+  captureUnhandledRejections: true,
+}).install((err, sendErr) => {
+  if (conf.get('sentry_dsn') && sendErr) {
+    console.error('Error Sending request to Sentry');
+    console.error(err.stack);
+    console.log('This is thy sheath; there rust, and let me die.');
+    process.exit(1);
+  }
+});
 
 /*
  * Definition of global variables.
@@ -45,50 +70,13 @@ const wss = new ws.Server({
 // Server, we need an instance of the KurentoClient in the Node application
 // server. In order to create this instance, we need to specify to the client
 // library the location of the Kurento Media Server.
-function getKurentoClient(callback) {
-  if (kurentoClient !== null) {
-    return callback(null, kurentoClient);
+async function getKurentoClient() {
+  if (kurentoClient) {
+    return kurentoClient;
   }
-  return kurento('ws://localhost:8888/kurento', (error, _kurentoClient) => {
-    if (error) {
-      return callback(
-        `Could not find media server. Exiting with error ${error}`,
-      );
-    }
-
-    kurentoClient = _kurentoClient;
-    return callback(null, kurentoClient);
-  });
-}
-
-// Create the Media Elements and connect them. For our purposes, we need both a
-// webRtcEndpoint and a recorder
-function createMediaElements(pipeline, _ws, videoKey, callback) {
-  const elements = [
-    {
-      type: 'RecorderEndpoint',
-      params: { uri: `file:///tmp/kurento/${videoKey}` },
-    },
-    {
-      type: 'WebRtcEndpoint',
-    },
-  ];
-  pipeline.create(elements, (error, webRtcEndpoint) => {
-    if (error) {
-      return callback(error);
-    }
-
-    return callback(null, webRtcEndpoint);
-  });
-}
-
-function connectMediaElements(webRtcEndpoint, callback) {
-  webRtcEndpoint.connect(webRtcEndpoint, error => {
-    if (error) {
-      return callback(error);
-    }
-    return callback(null);
-  });
+  const client = kurento('ws://localhost:8888/kurento');
+  kurentoClient = client;
+  return kurentoClient;
 }
 
 // Util function to send message via websocket
@@ -100,151 +88,83 @@ function sendMessage(message, connection) {
   throw new Error('No websocket connection');
 }
 
-// Util function to send error message via websocket
-function sendError(message, connection) {
-  console.error(message);
-  return sendMessage({ id: 'error', message }, connection);
-}
+async function start(sessionId, _ws, sdpOffer, videoKey) {
+  const client = await getKurentoClient();
 
-function start(sessionId, _ws, sdpOffer, videoKey, callback) {
-  if (!sessionId) {
-    return callback('Cannot use undefined sessionId');
+  const pipeline = await client.create('MediaPipeline');
+
+  const elements = await promisify(pipeline.create)([
+    {
+      type: 'RecorderEndpoint',
+      params: { uri: `file:///tmp/kurento/${videoKey}` },
+    },
+    {
+      type: 'WebRtcEndpoint',
+    },
+  ]);
+
+  const [recorder, webRtcEndpoint] = elements;
+
+  // save a pointer to the recorder for this session
+  recorders[sessionId] = recorder;
+
+  if (candidatesQueue[sessionId]) {
+    while (candidatesQueue[sessionId].length) {
+      const candidate = candidatesQueue[sessionId].shift();
+      webRtcEndpoint.addIceCandidate(candidate);
+    }
   }
 
-  return getKurentoClient((error, _kurentoClient) => {
-    if (error) {
-      return callback(error);
-    }
-
-    return _kurentoClient.create('MediaPipeline', (pipelineError, pipeline) => {
-      if (pipelineError) {
-        return callback(pipelineError);
-      }
-
-      return createMediaElements(
-        pipeline,
-        _ws,
-        videoKey,
-        (elementsError, elements) => {
-          if (elementsError) {
-            pipeline.release();
-            return callback(elementsError);
-          }
-          const [recorder, webRtcEndpoint] = elements;
-          // save a pointer to the recorder for this session
-          recorders[sessionId] = recorder;
-
-          if (candidatesQueue[sessionId]) {
-            while (candidatesQueue[sessionId].length) {
-              const candidate = candidatesQueue[sessionId].shift();
-              webRtcEndpoint.addIceCandidate(candidate);
-            }
-          }
-
-          return connectMediaElements(webRtcEndpoint, connectError => {
-            if (connectError) {
-              pipeline.release();
-              return callback(error);
-            }
-
-            webRtcEndpoint.on('OnIceCandidate', event => {
-              const candidate = kurento.getComplexType('IceCandidate')(
-                event.candidate,
-              );
-              sendMessage(
-                {
-                  id: 'iceCandidate',
-                  candidate,
-                },
-                _ws,
-              );
-            });
-
-            webRtcEndpoint.processOffer(sdpOffer, (offerError, sdpAnswer) => {
-              if (offerError) {
-                pipeline.release();
-                return callback(offerError);
-              }
-
-              sessions[sessionId] = {
-                pipeline,
-                webRtcEndpoint,
-              };
-              return callback(null, sdpAnswer);
-            });
-
-            webRtcEndpoint.gatherCandidates(candidatesError => {
-              if (candidatesError) {
-                return callback(candidatesError);
-              }
-              return undefined;
-            });
-
-            return _kurentoClient.connect(
-              webRtcEndpoint,
-              recorder,
-              clientConnectError => {
-                if (clientConnectError) {
-                  return callback(clientConnectError);
-                }
-                return recorder.record(recordError => {
-                  if (recordError) {
-                    return callback(recordError);
-                  }
-                  return undefined;
-                });
-              },
-            );
-          });
-        },
-      );
-    });
+  webRtcEndpoint.on('OnIceCandidate', event => {
+    const candidate = kurento.getComplexType('IceCandidate')(event.candidate);
+    sendMessage(
+      {
+        id: 'iceCandidate',
+        candidate,
+      },
+      _ws,
+    );
   });
+
+  // Connect endpoint to recorder
+  await client.connect(webRtcEndpoint, recorder);
+  await recorder.record();
+
+  const [sdpAnswer] = await Promise.all([
+    webRtcEndpoint.processOffer(sdpOffer),
+    webRtcEndpoint.gatherCandidates(),
+  ]);
+
+  sessions[sessionId] = {
+    pipeline,
+    webRtcEndpoint,
+  };
+
+  return sdpAnswer;
 }
 
-function stop(sessionId, connection, videoKey) {
+async function stop(sessionId, videoKey) {
   if (sessions[sessionId]) {
     const pipeline = sessions[sessionId].pipeline;
     recorders[sessionId].stop();
 
     // the recording was saved to the machine at /var/kurento/myrecording.webm
-    const filepath = path.join(RECORDINGS_PATH, videoKey || 'yo');
-    // read the recording
-    fs.readFile(filepath, (err, data) => {
-      if (err) {
-        sendError(
-          err.message || 'There was an error reading the video file.',
-          connection,
-        );
-      }
-      // upload the recording to s3
-      upload(data, videoKey)
-        .then(videoUrl => {
-          // inform client that s3 upload was successful, include the video key
-          // for future retrieval from s3
-          sendMessage(
-            {
-              id: 'uploadSuccess',
-              videoUrl,
-            },
-            connection,
-          );
-          // delete video from filesystem now that it is saved in s3
-          fs.unlinkSync(filepath);
-        })
-        .catch(e => {
-          sendError(
-            e.message || 'There was an error uploading the video.',
-            connection,
-          );
-        });
-    });
-    pipeline.release();
+    const filepath = path.join(RECORDINGS_PATH, videoKey);
 
+    // cleanup
+    pipeline.release();
     delete sessions[sessionId];
     delete candidatesQueue[sessionId];
     delete recorders[sessionId];
+
+    // Upload file
+    const data = await readFile(filepath);
+    const response = upload(data, videoKey);
+    await unlink(filepath); // NOTE: Order is important, only remove file if upload was successful.
+    return response;
   }
+
+  return null;
 }
 
 // As of Kurento Media Server 6.0, the WebRTC negotiation is done by exchanging ICE
@@ -270,55 +190,75 @@ function onIceCandidate(sessionId, _candidate) {
 /*
  * Management of WebSocket messages
  */
-wss.on('connection', wsConnection => {
+wss.on('connection', conn => {
   const sessionId = guid.create().value;
   const videoKey = createS3Key('webm');
 
-  wsConnection.on('error', () => {
-    stop(sessionId);
+  conn.on('error', () => {
+    stop(sessionId, videoKey);
   });
 
-  wsConnection.on('close', () => {
-    stop(sessionId);
+  conn.on('close', () => {
+    stop(sessionId, videoKey);
   });
 
-  wsConnection.on('message', _message => {
-    const message = JSON.parse(_message);
+  conn.on('message', async _message => {
+    Raven.context(async () => {
+      const message = JSON.parse(_message);
 
-    switch (message.id) {
-      case 'start':
-        start(
-          sessionId,
-          wsConnection,
-          message.sdpOffer,
-          videoKey,
-          (error, sdpAnswer) => {
-            if (error) {
-              return sendError(error, wsConnection);
-            }
+      Raven.setUserContext({
+        sessionId,
+        videoKey,
+        message,
+      });
+
+      try {
+        switch (message.id) {
+          case 'start': {
+            const sdpAnswer = await start(
+              sessionId,
+              conn,
+              message.sdpOffer,
+              videoKey,
+            );
+
             return sendMessage(
               {
                 id: 'startResponse',
                 sdpAnswer,
               },
-              wsConnection,
+              conn,
             );
+          }
+
+          case 'stop': {
+            const videoUrl = await stop(sessionId, videoKey);
+            return sendMessage({ id: 'uploadSuccess', videoUrl }, conn);
+          }
+
+          case 'onIceCandidate':
+            onIceCandidate(sessionId, message.candidate);
+            break;
+
+          default:
+            throw new Error(`Invalid message ${message}`);
+        }
+      } catch (e) {
+        // Lets not throw here, otherwise we may break other sessions who are recording.
+        Raven.captureException(e);
+        return sendMessage(
+          {
+            id: 'error',
+            message,
+            error:
+              process.env.NODE_ENV === 'production'
+                ? 'Server Side Error'
+                : e.stack,
           },
+          conn,
         );
-        break;
-
-      case 'stop':
-        stop(sessionId, wsConnection, videoKey);
-        break;
-
-      case 'onIceCandidate':
-        onIceCandidate(sessionId, message.candidate);
-        break;
-
-      default:
-        sendError(`Invalid message ${message}`, wsConnection);
-        break;
-    }
+      }
+    });
   });
 });
 
@@ -328,8 +268,10 @@ api.get('/ping', (req, res) => {
 });
 
 // fetch number of active sessions, since re-deploying this server will mess up active sessions
-admin.get('/sessions', (req, res) => {
-  res.send(Object.keys(sessions).length);
+adminApi.get('/sessions', (req, res) => {
+  res.send(JSON.stringify(sessions));
 });
 
 server.listen(8443);
+
+console.log('Orchestration Started!');
