@@ -1,4 +1,4 @@
-/* global window, document */
+/* global window, document, navigator */
 import Recorder from './lib';
 
 const wait = seconds => new Promise(resolve => setTimeout(resolve, seconds));
@@ -9,12 +9,33 @@ const testRecord = async wrapperDiv => {
   div.style.margin = '10px';
   wrapperDiv.appendChild(div);
 
+  const bytesTransferedDiv = document.createElement('div');
+  bytesTransferedDiv.style.margin = '10px';
+  wrapperDiv.appendChild(bytesTransferedDiv);
+
   try {
+    div.innerHTML = 'Request user video and audio';
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: true,
+    });
+
     div.innerHTML = 'Connecting to websocket...';
-    const recorder = await Recorder('wss://localhost:8088/api/recorder');
+    const recorder = await Recorder('wss://localhost:8088/recorder', 'admin');
 
     div.innerHTML = 'ICE negotiation...';
-    await recorder.start();
+    await recorder.start(
+      stream,
+      ({ videoBytesSent, networkType, destination }) => {
+        const video = parseInt(videoBytesSent / 1024, 10);
+        const destinationInfo = destination
+          ? `to ${destination} (${networkType})`
+          : '';
+        bytesTransferedDiv.innerHTML = `
+          Streamed <strong>${video}</strong>kb ${destinationInfo}<br />
+      `;
+      },
+    );
 
     div.innerHTML = 'Recording 3 second of video...';
     await wait(3000);
@@ -24,7 +45,7 @@ const testRecord = async wrapperDiv => {
 
     const sizeInKb = parseInt(size / 1024, 10);
 
-    div.innerHTML = `&#10004; Success ${sizeInKb}kb <a href='${url}'>(download)</a>`;
+    div.innerHTML = `&#10004; Successfully uploaded <strong>${sizeInKb}</strong>kb video to s3 <a href='${url}'>(download)</a>`;
   } catch (e) {
     div.innerHTML += `<strong>Failed!</strong> <pre>${e.stack}</pre>`;
   }
