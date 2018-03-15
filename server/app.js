@@ -130,6 +130,9 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
   const [recorder, webRtcEndpoint] = elements;
 
   // save a pointer to the recorder for this session
+  if (!globalState.sessions[sessionId]) {
+    globalState.sessions[sessionId] = {};
+  }
   globalState.sessions[sessionId].recorder = recorder;
 
   if (getCandidatesQueue(sessionId)) {
@@ -206,6 +209,7 @@ async function stop(sessionId, videoKey) {
 function onIceCandidate(sessionId, _candidate) {
   const candidate = kurento.getComplexType('IceCandidate')(_candidate);
 
+  // This is ripe for race conditions.
   if (getWebRtcEndpoint(sessionId)) {
     getWebRtcEndpoint(sessionId).addIceCandidate(candidate);
   } else {
