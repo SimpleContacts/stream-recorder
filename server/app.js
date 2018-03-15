@@ -1,4 +1,4 @@
-/* eslint-disable consistent-return, no-console, no-plus-plus */
+/* eslint-disable consistent-return, no-console, no-plusplus */
 // @flow
 
 import express from 'express';
@@ -73,6 +73,18 @@ const getPipeline = sessionId =>
   idx(getState(), _ => _.sessions[sessionId].pipeline);
 const numSessions = () => Object.keys(getState().sessions).length;
 
+const addToTimeline = (sessionId, action) => {
+  if (!globalState.sessions[sessionId]) {
+    globalState.sessions[sessionId] = {};
+  }
+
+  if (!globalState.sessions[sessionId].timeline) {
+    globalState.sessions[sessionId].timeline = [];
+  }
+
+  globalState.sessions[sessionId].timeline.push(action);
+};
+
 /*
  * Server startup
  */
@@ -144,6 +156,7 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
 
   webRtcEndpoint.on('OnIceCandidate', event => {
     const candidate = kurento.getComplexType('IceCandidate')(event.candidate);
+    addToTimeline(sessionId, 'RCandidate');
     sendMessage(
       {
         id: 'iceCandidate',
@@ -250,12 +263,14 @@ wss.on('connection', conn => {
         message = JSON.parse(_message);
         switch (message.id) {
           case 'start': {
+            addToTimeline(sessionId, 'start');
             const sdpAnswer = await start(
               sessionId,
               conn,
               message.sdpOffer,
               videoKey,
             );
+            addToTimeline(sessionId, 'startResponse');
             return sendMessage(
               {
                 id: 'startResponse',
@@ -266,6 +281,7 @@ wss.on('connection', conn => {
           }
 
           case 'stop': {
+            addToTimeline(sessionId, 'stop');
             const videoUrl = await stop(sessionId, videoKey);
             return sendMessage({ id: 'uploadSuccess', videoUrl }, conn);
           }
@@ -276,6 +292,7 @@ wss.on('connection', conn => {
           }
 
           case 'onIceCandidate':
+            addToTimeline(sessionId, 'LCandidate');
             onIceCandidate(sessionId, message.candidate);
             break;
 
