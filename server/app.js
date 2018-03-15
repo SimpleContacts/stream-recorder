@@ -167,8 +167,13 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
 function cleanup(sessionId) {
   const pipeline = getPipeline(sessionId);
   const recorder = getRecorder(sessionId);
-  recorder.stop();
-  pipeline.release();
+  if (recorder) {
+    recorder.stop();
+  }
+  if (pipeline) {
+    pipeline.release();
+  }
+
   delete globalState.sessions[sessionId];
   console.log(`#${sessionId} Stopped - ${numSessions()} job(s) now running`);
 }
