@@ -32,7 +32,15 @@ http {
     ssl_certificate_key  $PWD/dummyKeys/server.key;
 
     # Orchestration websocket connection.
-    location /api {
+    location /recorder {
+      proxy_pass http://orch;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade \$http_upgrade;
+      proxy_set_header Connection "upgrade";
+    }
+
+    # Health checker
+    location /ping {
       proxy_pass http://orch;
       proxy_http_version 1.1;
       proxy_set_header Upgrade \$http_upgrade;

@@ -1,83 +1,151 @@
 /* eslint-disable */
 import 'webrtc-adapter';
-import './kurento-utils';
+import getDebuggingInfo from './getDebuggingInfo';
 
-const createVideoStreamer = url =>
-  new Promise(resolve => {
+export default (url, userId, logError = console.error) =>
+  new Promise(resolveStreamer => {
     const ws = new WebSocket(url);
 
-    let webRtcPeer;
-    let resolveStopStreaming;
+    let pc = null;
+    let webRtcPeer = null;
+    let resolveStartStreaming = null;
+    let rejectStartStreaming = null;
+    let resolveStopStreaming = null;
+    let rejectStopStreaming = null;
+    const queuedRemoteCandidates = [];
+    let statsInterval = null;
 
-    window.onbeforeunload = function() {
-      ws.close();
-    };
+    // Lets fail completly if we see an error at any point in the process.
+    // This ensurses subtle bugs don't get by and video is silently not recorded.
+    let hasServerError = null;
+
+    // Lets store whether the streamign started. THis way we enforce its nto clicked twice.
+    let isStarted = false;
 
     ws.onerror = err => {
-      console.error(err);
+      logError(err);
+      hasServerError = err.stack;
     };
 
-    ws.onmessage = function(message) {
-      const parsedMessage = JSON.parse(message.data);
-
-      switch (parsedMessage.id) {
-        case 'startResponse':
-          startResponse(parsedMessage);
-          break;
-        case 'error':
-          onError('Error message from server: ', parsedMessage.message);
-          break;
-        case 'iceCandidate':
-          webRtcPeer.addIceCandidate(parsedMessage.candidate);
-          break;
-        case 'uploadSuccess':
-          if (resolveStopStreaming) {
-            resolveStopStreaming(parsedMessage.videoUrl);
-          }
-          ws.close();
-          break;
+    function onRemoteIceCandidate(candidate) {
+      switch (pc.signalingState) {
+        case 'closed':
+          throw new Error('PeerConnection object is closed');
+        case 'stable':
+          return pc.addIceCandidate(new RTCIceCandidate(candidate));
         default:
-          onError('Unrecognized message', parsedMessage);
+          return queuedRemoteCandidates.push(candidate);
+      }
+    }
+
+    async function processAnswer(sdp) {
+      const answer = new RTCSessionDescription({
+        type: 'answer',
+        sdp,
+      });
+
+      return pc.setRemoteDescription(answer);
+    }
+
+    ws.onmessage = async message => {
+      const parsedMessage = JSON.parse(message.data);
+      try {
+        switch (parsedMessage.id) {
+          case 'startResponse': {
+            await processAnswer(parsedMessage.sdpAnswer);
+            return resolveStartStreaming();
+          }
+          case 'error': {
+            const e = new Error(parsedMessage.error);
+            e.stack = parsedMessage.error;
+            if (rejectStartStreaming) {
+              rejectStartStreaming(e);
+            }
+            if (rejectStopStreaming) {
+              rejectStopStreaming(e);
+            }
+            throw e;
+          }
+          case 'iceCandidate':
+            return onRemoteIceCandidate(parsedMessage.candidate);
+          case 'uploadSuccess':
+            ws.close();
+            return resolveStopStreaming(parsedMessage.videoUrl);
+          default:
+            return logError('Unrecognized message', parsedMessage);
+        }
+      } catch (e) {
+        logError(e);
+        hasServerError = e;
       }
     };
 
-    function start() {
-      return new Promise(resolve => {
-        const options = {
-          onicecandidate: onIceCandidate,
-          mediaConstraints: {
-            video: true,
-            audio: true,
-          },
-          configuration: {
-            iceServers: [
-              {
-                url: 'turn:video.simplecontacts.com:3478',
-                credential: 'sc',
-                username: 'opto',
-              },
-            ],
-          },
-        };
+    async function start(videoStream, onStats) {
+      return new Promise(async (resolve, reject) => {
+        resolveStartStreaming = resolve;
+        rejectStartStreaming = reject;
 
-        webRtcPeer = global.kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(
-          options,
-          function(error) {
-            if (error) {
-              return onError(error);
-            }
-            return this.generateOffer((error, offerSdp) => {
-              if (error) {
-                return onError(error);
-              }
-              const message = {
-                id: 'start',
-                sdpOffer: offerSdp,
-              };
-              return resolve(sendMessage(message));
+        pc = new RTCPeerConnection({
+          iceServers: [
+            {
+              url: 'turn:video.simplecontacts.com:3478',
+              credential: 'sc',
+              username: 'opto',
+            },
+          ],
+        });
+
+        pc.addEventListener('icecandidate', e => {
+          const candidate = e.candidate;
+          if (candidate) {
+            sendMessage({
+              id: 'onIceCandidate',
+              candidate,
             });
-          },
-        );
+          }
+        });
+
+        pc.addEventListener('signalingstatechange', () => {
+          if (pc.signalingState === 'stable') {
+            queuedRemoteCandidates.forEach(c => {
+              pc.addIceCandidate(new RTCIceCandidate(c));
+            });
+          }
+        });
+
+        // We need both audio and video tracks for the encoding to work for
+        // some weird reason. Otherwise we get 0 bytes.
+        pc.addTrack(videoStream.getVideoTracks()[0]);
+        pc.addTrack(videoStream.getAudioTracks()[0]);
+
+        // Lets pump our status to our orchestration server
+        statsInterval = setInterval(async () => {
+          const stats = await pc.getStats(videoStream.getVideoTracks()[0]);
+          const dump = Object.assign(getDebuggingInfo(stats), {
+            iceConnectionState: pc.iceConnectionState,
+            userId,
+          });
+          if (onStats) {
+            onStats(dump);
+          }
+
+          sendMessage({
+            id: 'status',
+            dump,
+          });
+        }, 250);
+
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: false,
+          offerToReceiveVideo: false,
+        });
+
+        await pc.setLocalDescription(offer);
+
+        return sendMessage({
+          id: 'start',
+          sdpOffer: pc.localDescription.sdp,
+        });
       });
     }
 
@@ -89,30 +157,24 @@ const createVideoStreamer = url =>
       sendMessage(message);
     }
 
-    function onError(error) {
-      console.error('ERROR ERROR ERROR', error);
-      ws.close();
-      onStreamError(error);
-    }
-
     function startResponse(message) {
       webRtcPeer.processAnswer(message.sdpAnswer);
     }
 
     async function stop() {
-      return new Promise(resolve => {
+      return new Promise((resolve, reject) => {
+        clearInterval(statsInterval);
         if (resolveStopStreaming) {
-          throw new Error('Cannot stop stream twice');
+          return reject(new Error('Cannot stop stream twice'));
         }
         resolveStopStreaming = resolve;
-        if (webRtcPeer) {
-          webRtcPeer.dispose();
-          webRtcPeer = null;
+        rejectStopStreaming = reject;
 
-          sendMessage({
-            id: 'stop',
-          });
-        }
+        pc.close();
+
+        return sendMessage({
+          id: 'stop',
+        });
       });
     }
 
@@ -121,7 +183,5 @@ const createVideoStreamer = url =>
       ws.send(jsonMessage);
     }
 
-    ws.onopen = () => resolve({ start, stop });
+    ws.onopen = () => resolveStreamer({ start, stop });
   });
-
-export default createVideoStreamer;
