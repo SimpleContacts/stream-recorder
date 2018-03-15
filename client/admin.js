@@ -21,7 +21,12 @@ const testRecord = async wrapperDiv => {
     });
 
     div.innerHTML = 'Connecting to websocket...';
-    const recorder = await Recorder('wss://localhost:8088/recorder', 'admin');
+    const recorder = await Recorder(
+      process.env.NODE_ENV === 'production'
+        ? 'wss://video.simplecontacts.com/recorder'
+        : 'wss://localhost:8088/recorder',
+      'admin',
+    );
 
     div.innerHTML = 'ICE negotiation...';
     await recorder.start(
