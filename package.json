@@ -7,17 +7,14 @@
     "test": "eslint . && flow check && jest .",
     "start:prod": "yarn bundle && NODE_ENV=production pm2 start pm2.config.js",
     "bundle": "yarn bundle:admin && yarn bundle:lib",
-    "bundle:admin":
-      "webpack --mode production --output-path dist/admin --output-filename index.js client/admin.js",
-    "bundle:lib":
-      "./node_modules/.bin/webpack --output-library StreamRecorder --output-library-target umd --mode production --output-path dist/api --output-filename client.js client/lib.js"
+    "bundle:admin": "webpack --mode production --output-path dist/admin --output-filename index.js client/admin.js",
+    "bundle:lib": "./node_modules/.bin/webpack --output-library StreamRecorder --output-library-target umd --mode production --output-path dist/api --output-filename client.js client/lib.js"
   },
   "dependencies": {
     "aws-sdk": "^2.200.0",
     "chalk": "^2.3.0",
     "decoders": "^1.4.6",
     "express": "^4.16.2",
-    "guid": "^0.0.12",
     "idx": "^2.2.0",
     "kurento-client": "https://github.com/Kurento/kurento-client-js#master",
     "moment": "^2.20.1",

@@ -1,10 +1,9 @@
-/* eslint-disable consistent-return */
+/* eslint-disable consistent-return, no-console, no-plus-plus */
 // @flow
 
 import express from 'express';
 import { promisify } from 'util';
 import fs from 'fs';
-import guid from 'guid';
 import http from 'http';
 import kurento from 'kurento-client';
 import Raven from 'raven';
@@ -54,6 +53,10 @@ Raven.config(conf.get('sentry_dsn'), {
  * This can be redux or soemthing else future.
  */
 const globalState = {
+  // This indicates the session.
+  session: Date.now(),
+  // This is also used to give sessionId
+  numJobs: 0,
   sessions: {},
   kurentoClient: null,
 };
@@ -68,6 +71,7 @@ const getRecorder = sessionId =>
   idx(getState(), _ => _.sessions[sessionId].recorder);
 const getPipeline = sessionId =>
   idx(getState(), _ => _.sessions[sessionId].pipeline);
+const numSessions = () => Object.keys(getState().sessions).length;
 
 /*
  * Server startup
@@ -106,6 +110,9 @@ function sendMessage(message, connection) {
 }
 
 async function start(sessionId, _ws, sdpOffer, videoKey) {
+  console.log(
+    `#${sessionId} Started - ${numSessions() + 1} job(s) now running`,
+  );
   const client = await getKurentoClient();
 
   const pipeline = await client.create('MediaPipeline');
@@ -157,15 +164,22 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
   return sdpAnswer;
 }
 
-async function stop(sessionId, videoKey) {
+function cleanup(sessionId) {
   const pipeline = getPipeline(sessionId);
-  getRecorder(sessionId).stop();
+  const recorder = getRecorder(sessionId);
+  recorder.stop();
+  pipeline.release();
+  delete globalState.sessions[sessionId];
+  console.log(`#${sessionId} Stopped - ${numSessions()} job(s) now running`);
+}
+
+async function stop(sessionId, videoKey) {
+  if (!globalState.sessions[sessionId]) {
+    throw new Error('Already stopped!');
+  }
 
   // the recording was saved to the machine at /var/kurento/myrecording.webm
   const filepath = path.join(RECORDINGS_PATH, videoKey);
-
-  // cleanup
-  pipeline.release();
 
   // Upload file
   const data = await readFile(filepath);
@@ -174,7 +188,7 @@ async function stop(sessionId, videoKey) {
   if (response.size === 0) {
     throw new Error('No frames captured');
   }
-  delete globalState.sessions[sessionId];
+  cleanup(sessionId);
   return response;
 }
 
@@ -203,15 +217,20 @@ function onIceCandidate(sessionId, _candidate) {
  * Management of WebSocket messages
  */
 wss.on('connection', conn => {
-  const sessionId = guid.create().value;
+  const sessionId = ++globalState.numJobs;
   const videoKey = createS3Key('webm');
 
   conn.on('error', () => {
-    stop(sessionId, videoKey);
-  });
-
-  conn.on('close', () => {
-    stop(sessionId, videoKey);
+    const error = new Error('Connection error');
+    console.error(error);
+    Raven.captureException(error, {
+      extra: {
+        sessionId,
+        videoKey,
+        globalState: JSON.parse(JSON.stringify(globalState)),
+      },
+    });
+    cleanup(sessionId);
   });
 
   conn.on('message', async _message => {
@@ -265,7 +284,7 @@ wss.on('connection', conn => {
             globalState: JSON.parse(JSON.stringify(globalState)),
           },
         });
-        delete globalState.sessions[sessionId];
+        cleanup(sessionId);
         return sendMessage(
           {
             id: 'error',
@@ -296,6 +315,4 @@ if (process.env.NODE_ENV === 'production') {
 
 server.listen(8443);
 
-console.log(
-  `Orchestration Started (${process.env.NODE_ENV || 'development'})!`,
-);
+console.log(`Orchestration Started (${process.env.NODE_ENV || 'development'})`);
