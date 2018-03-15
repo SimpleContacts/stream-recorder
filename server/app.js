@@ -32,7 +32,7 @@ if (process.env.NODE_ENV === 'production') {
     res.send(`<body><script src="/admin/index.js"></script></body>`);
   });
   app.get('/admin/index.js', (req, res) => res.send(adminJs));
-  app.get('/api/client.js', (req, res) => res.send(clientJs));
+  app.get('/client.js', (req, res) => res.send(clientJs));
 }
 
 // Global Error catching.
