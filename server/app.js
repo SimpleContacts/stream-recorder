@@ -296,4 +296,6 @@ if (process.env.NODE_ENV === 'production') {
 
 server.listen(8443);
 
-console.log('Orchestration Started!');
+console.log(
+  `Orchestration Started (${process.env.NODE_ENV || 'development'})!`,
+);
