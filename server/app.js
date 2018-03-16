@@ -181,6 +181,14 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
 }
 
 async function cleanup(sessionId) {
+  let recorderState;
+  try {
+    recorderState = await globalState.sessions[sessionId].recorder.getState();
+  } catch (e) {
+    // nothing
+    console.error(e);
+  }
+
   const pipeline = getPipeline(sessionId);
   const recorder = getRecorder(sessionId);
   if (recorder) {
@@ -195,7 +203,11 @@ async function cleanup(sessionId) {
   globalState.sessions[sessionId].stop = Date.now();
   console.log(`#${sessionId} Stopped - ${numSessions()} job(s) now running`);
   return upload(
-    JSON.stringify(globalState.sessions[sessionId], null, 2),
+    JSON.stringify(
+      { ...globalState.sessions[sessionId], recorderState },
+      null,
+      2,
+    ),
     `videoDebug/${globalState.processId}-${sessionId}.txt`,
   );
 }
