@@ -1,5 +1,4 @@
 /* eslint-disable */
-import 'webrtc-adapter';
 import getDebuggingInfo from './getDebuggingInfo';
 
 export default (url, userId, logError = console.error) =>
