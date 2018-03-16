@@ -21,7 +21,7 @@ const testRecord = async wrapperDiv => {
       video: true,
     });
 
-    div.innerHTML = 'Connecting to websocket...';
+    div.innerHTML = 'Setting up...';
     const recorder = await Recorder(
       process.env.NODE_ENV === 'production'
         ? 'wss://video.simplecontacts.com/recorder'
@@ -29,7 +29,7 @@ const testRecord = async wrapperDiv => {
       'admin',
     );
 
-    div.innerHTML = 'ICE negotiation...';
+    div.innerHTML = 'Start recording...';
     await recorder.start(
       stream,
       ({ videoBytesSent, networkType, destination }) => {
@@ -46,7 +46,7 @@ const testRecord = async wrapperDiv => {
     div.innerHTML = 'Recording 3 second of video...';
     await wait(3000);
 
-    div.innerHTML = 'Stopping stream...';
+    div.innerHTML = 'Stop recording...';
     const { size, url, debugUrl } = await recorder.stop();
 
     const sizeInKb = parseInt(size / 1024, 10);
