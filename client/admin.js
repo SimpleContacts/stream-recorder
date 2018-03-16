@@ -47,13 +47,14 @@ const testRecord = async wrapperDiv => {
     await wait(3000);
 
     div.innerHTML = 'Stopping stream...';
-    const { size, url } = await recorder.stop();
+    const { size, url, debugUrl } = await recorder.stop();
 
     const sizeInKb = parseInt(size / 1024, 10);
 
-    div.innerHTML = `&#10004; Successfully uploaded <strong>${sizeInKb}</strong>kb video to s3 <a href='${url}'>(download)</a>`;
+    div.innerHTML = `&#10004; Successfully uploaded <strong>${sizeInKb}</strong>kb video to s3 <a href='${url}'>(download)</a> <a href='${debugUrl}'>(debug info)</a>`;
   } catch (e) {
-    div.innerHTML += `<strong>Failed!</strong> <pre>${e.stack}</pre>`;
+    div.innerHTML += `<strong>Failed! <a href='${e.debugUrl}'>(debug info)</a>`;
+    div.innerHTML += `</strong> <pre>${e.stack}</pre>`;
   }
 };
 
