@@ -163,6 +163,10 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
     globalState.sessions[sessionId].candidatesQueue = [];
   }
 
+  webRtcEndpoint.on('OnIceGatheringDone', () => {
+    addToTimeline(sessionId, 'server:IceGatheringDone');
+  });
+
   webRtcEndpoint.on('OnIceCandidate', event => {
     const candidate = kurento.getComplexType('IceCandidate')(event.candidate);
     sendMessage(
