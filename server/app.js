@@ -23,6 +23,8 @@ const unlink = promisify(fs.unlink);
 
 const app = express();
 
+const wait = seconds => new Promise(resolve => setTimeout(resolve, seconds));
+
 // These files are served by express in production.
 if (process.env.NODE_ENV === 'production') {
   const adminJs = fs.readFileSync(ADMINJS_PATH);
@@ -54,7 +56,7 @@ Raven.config(conf.get('sentry_dsn'), {
  */
 const globalState = {
   // This indicates the session.
-  session: Date.now(),
+  processId: Date.now(),
   // This is also used to give sessionId
   numJobs: 0,
   sessions: {},
@@ -73,16 +75,14 @@ const getPipeline = sessionId =>
   idx(getState(), _ => _.sessions[sessionId].pipeline);
 const numSessions = () => Object.keys(getState().sessions).length;
 
-const addToTimeline = (sessionId, action) => {
-  if (!globalState.sessions[sessionId]) {
-    globalState.sessions[sessionId] = {};
-  }
-
+const addToTimeline = (sessionId, action, timestamp = Date.now()) => {
   if (!globalState.sessions[sessionId].timeline) {
     globalState.sessions[sessionId].timeline = [];
   }
 
-  globalState.sessions[sessionId].timeline.push(action);
+  globalState.sessions[sessionId].timeline.push(
+    `${action}:${timestamp - globalState.sessions[sessionId].start}`,
+  );
 };
 
 /*
@@ -125,10 +125,14 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
   console.log(
     `#${sessionId} Started - ${numSessions() + 1} job(s) now running`,
   );
+
+  addToTimeline(sessionId, 'server:getKurentoClient');
   const client = await getKurentoClient();
 
+  addToTimeline(sessionId, 'server:client.create');
   const pipeline = await client.create('MediaPipeline');
 
+  addToTimeline(sessionId, 'server:pipeline.create');
   const elements = await promisify(pipeline.create)([
     {
       type: 'RecorderEndpoint',
@@ -140,14 +144,11 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
   ]);
 
   const [recorder, webRtcEndpoint] = elements;
-
-  // save a pointer to the recorder for this session
-  if (!globalState.sessions[sessionId]) {
-    globalState.sessions[sessionId] = {};
-  }
+  globalState.sessions[sessionId].webRtcEndpoint = webRtcEndpoint;
   globalState.sessions[sessionId].recorder = recorder;
 
   if (getCandidatesQueue(sessionId)) {
+    addToTimeline(sessionId, 'server:flushQueuedCandidates');
     getCandidatesQueue(sessionId).forEach(candidate =>
       webRtcEndpoint.addIceCandidate(candidate),
     );
@@ -156,7 +157,6 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
 
   webRtcEndpoint.on('OnIceCandidate', event => {
     const candidate = kurento.getComplexType('IceCandidate')(event.candidate);
-    addToTimeline(sessionId, 'RCandidate');
     sendMessage(
       {
         id: 'iceCandidate',
@@ -166,32 +166,38 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
     );
   });
 
+  addToTimeline(sessionId, 'server:processOffer');
   const sdpAnswer = await webRtcEndpoint.processOffer(sdpOffer);
-  globalState.sessions[sessionId] = {
-    ...globalState.sessions[sessionId],
-    pipeline,
-    webRtcEndpoint,
-  };
+  globalState.sessions[sessionId].pipeline = pipeline;
 
+  addToTimeline(sessionId, 'server:gatherCandidates');
   await webRtcEndpoint.gatherCandidates();
+  addToTimeline(sessionId, 'server:connectRecorder');
   await client.connect(webRtcEndpoint, recorder);
+  addToTimeline(sessionId, 'server:record');
   await recorder.record();
 
   return sdpAnswer;
 }
 
-function cleanup(sessionId) {
+async function cleanup(sessionId) {
   const pipeline = getPipeline(sessionId);
   const recorder = getRecorder(sessionId);
   if (recorder) {
+    addToTimeline(sessionId, 'server:recorder.stop');
     recorder.stop();
   }
   if (pipeline) {
+    addToTimeline(sessionId, 'server:pipeline.release');
     pipeline.release();
   }
 
-  delete globalState.sessions[sessionId];
+  globalState.sessions[sessionId].stop = Date.now();
   console.log(`#${sessionId} Stopped - ${numSessions()} job(s) now running`);
+  return upload(
+    JSON.stringify(globalState.sessions[sessionId], null, 2),
+    `videoDebug/${globalState.processId}-${sessionId}.txt`,
+  );
 }
 
 async function stop(sessionId, videoKey) {
@@ -205,12 +211,15 @@ async function stop(sessionId, videoKey) {
   // Upload file
   const data = await readFile(filepath);
   const response = await upload(data, videoKey);
-  await unlink(filepath); // NOTE: Order is important, only remove file if upload was successful.
+
+  // NOTE: Order is important, only remove file if upload was successful.
+  await unlink(filepath);
   if (response.size === 0) {
     throw new Error('No frames captured');
   }
-  cleanup(sessionId);
-  return response;
+  const debug = await cleanup(sessionId);
+
+  return { ...response, debugUrl: debug.url };
 }
 
 // As of Kurento Media Server 6.0, the WebRTC negotiation is done by exchanging ICE
@@ -219,19 +228,19 @@ async function stop(sessionId, videoKey) {
 // These candidates are stored in a queue when the webRtcEndpoint is not available
 // yet. Then these candidates are added to the media element by calling to the
 // addIceCandidate method.
-function onIceCandidate(sessionId, _candidate) {
+async function onIceCandidate(sessionId, _candidate) {
   const candidate = kurento.getComplexType('IceCandidate')(_candidate);
 
-  // This is ripe for race conditions.
   if (getWebRtcEndpoint(sessionId)) {
+    addToTimeline(sessionId, 'server:addCandidate');
     getWebRtcEndpoint(sessionId).addIceCandidate(candidate);
   } else {
-    globalState.sessions[sessionId] = {
-      ...globalState.sessions[sessionId],
-      candidatesQueue: !getCandidatesQueue(sessionId)
-        ? [candidate]
-        : getCandidatesQueue(sessionId).concat(candidate),
-    };
+    addToTimeline(sessionId, 'server:queueCandidate');
+    globalState.sessions[sessionId].candidatesQueue = !getCandidatesQueue(
+      sessionId,
+    )
+      ? [candidate]
+      : getCandidatesQueue(sessionId).concat(candidate);
   }
 }
 
@@ -241,6 +250,8 @@ function onIceCandidate(sessionId, _candidate) {
 wss.on('connection', conn => {
   const sessionId = ++globalState.numJobs;
   const videoKey = createS3Key('webm');
+  globalState.sessions[sessionId] = { start: Date.now() };
+  addToTimeline(sessionId, 'ws_open');
 
   conn.on('error', () => {
     const error = new Error('Connection error');
@@ -255,6 +266,11 @@ wss.on('connection', conn => {
     cleanup(sessionId);
   });
 
+  conn.on('close', () => {
+    addToTimeline(sessionId, 'ws_closed');
+    delete globalState.sessions[sessionId];
+  });
+
   conn.on('message', async _message => {
     Raven.context(async () => {
       let message;
@@ -263,14 +279,12 @@ wss.on('connection', conn => {
         message = JSON.parse(_message);
         switch (message.id) {
           case 'start': {
-            addToTimeline(sessionId, 'start');
             const sdpAnswer = await start(
               sessionId,
               conn,
               message.sdpOffer,
               videoKey,
             );
-            addToTimeline(sessionId, 'startResponse');
             return sendMessage(
               {
                 id: 'startResponse',
@@ -281,9 +295,8 @@ wss.on('connection', conn => {
           }
 
           case 'stop': {
-            addToTimeline(sessionId, 'stop');
-            const videoUrl = await stop(sessionId, videoKey);
-            return sendMessage({ id: 'uploadSuccess', videoUrl }, conn);
+            const payload = await stop(sessionId, videoKey);
+            return sendMessage({ id: 'uploadSuccess', payload }, conn);
           }
 
           case 'status': {
@@ -292,7 +305,6 @@ wss.on('connection', conn => {
           }
 
           case 'onIceCandidate':
-            addToTimeline(sessionId, 'LCandidate');
             onIceCandidate(sessionId, message.candidate);
             break;
 
@@ -307,18 +319,23 @@ wss.on('connection', conn => {
             sessionId,
             videoKey,
             message,
+            session: JSON.parse(
+              JSON.stringify(globalState.sessions[sessionId]),
+            ),
             globalState: JSON.parse(JSON.stringify(globalState)),
           },
         });
-        cleanup(sessionId);
+
+        const debug = await cleanup(sessionId);
         return sendMessage(
           {
             id: 'error',
+            debugUrl: debug.url,
             message,
-            error:
-              process.env.NODE_ENV === 'production'
-                ? 'Server Side Error'
-                : e.stack,
+            error: e.stack,
+            // process.env.NODE_ENV === 'production'
+            //   ? 'Server Side Error'
+            //   : e.stack,
           },
           conn,
         );

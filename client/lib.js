@@ -1,6 +1,8 @@
 /* eslint-disable */
 import getDebuggingInfo from './getDebuggingInfo';
 
+const wait = seconds => new Promise(resolve => setTimeout(resolve, seconds));
+
 export default (url, userId, logError = console.error) =>
   new Promise(resolveStreamer => {
     const ws = new WebSocket(url);
@@ -26,7 +28,7 @@ export default (url, userId, logError = console.error) =>
       hasServerError = err.stack;
     };
 
-    function onRemoteIceCandidate(candidate) {
+    async function onRemoteIceCandidate(candidate) {
       switch (pc.signalingState) {
         case 'closed':
           throw new Error('PeerConnection object is closed');
@@ -57,6 +59,7 @@ export default (url, userId, logError = console.error) =>
           case 'error': {
             const e = new Error(parsedMessage.error);
             e.stack = parsedMessage.error;
+            e.debugUrl = parsedMessage.debugUrl;
             if (rejectStartStreaming) {
               rejectStartStreaming(e);
             }
@@ -69,7 +72,7 @@ export default (url, userId, logError = console.error) =>
             return onRemoteIceCandidate(parsedMessage.candidate);
           case 'uploadSuccess':
             ws.close();
-            return resolveStopStreaming(parsedMessage.videoUrl);
+            return resolveStopStreaming(parsedMessage.payload);
           default:
             return logError('Unrecognized message', parsedMessage);
         }
@@ -132,7 +135,7 @@ export default (url, userId, logError = console.error) =>
             id: 'status',
             dump,
           });
-        }, 250);
+        }, 500);
 
         const offer = await pc.createOffer({
           offerToReceiveAudio: false,
@@ -156,7 +159,7 @@ export default (url, userId, logError = console.error) =>
       sendMessage(message);
     }
 
-    function startResponse(message) {
+    async function startResponse(message) {
       webRtcPeer.processAnswer(message.sdpAnswer);
     }
 
