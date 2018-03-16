@@ -54,6 +54,8 @@ export default (url, userId, logError = console.error) =>
         switch (parsedMessage.id) {
           case 'startResponse': {
             await processAnswer(parsedMessage.sdpAnswer);
+          }
+          case 'recordingStarted': {
             return resolveStartStreaming();
           }
           case 'error': {

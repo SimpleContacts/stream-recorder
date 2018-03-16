@@ -1,4 +1,4 @@
-/* eslint-disable consistent-return, no-console, no-plusplus */
+/* eslint-disable consistent-return, no-console, no-plusplus, no-await-in-loop */
 // @flow
 
 import express from 'express';
@@ -121,6 +121,14 @@ function sendMessage(message, connection) {
   throw new Error('No websocket connection');
 }
 
+async function makeSureRecorderIsRunning(sessionId) {
+  let state = await globalState.sessions[sessionId].recorder.getState();
+  while (state !== 'START') {
+    state = await globalState.sessions[sessionId].recorder.getState();
+    await wait(250);
+  }
+}
+
 async function start(sessionId, _ws, sdpOffer, videoKey) {
   console.log(
     `#${sessionId} Started - ${numSessions() + 1} job(s) now running`,
@@ -176,6 +184,7 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
   await client.connect(webRtcEndpoint, recorder);
   addToTimeline(sessionId, 'server:record');
   await recorder.record();
+  globalState.sessions[sessionId].recording = true;
 
   return sdpAnswer;
 }
@@ -216,6 +225,8 @@ async function stop(sessionId, videoKey) {
   if (!globalState.sessions[sessionId]) {
     throw new Error('Already stopped!');
   }
+
+  globalState.sessions[sessionId].recording = false;
 
   // the recording was saved to the machine at /var/kurento/myrecording.webm
   const filepath = path.join(RECORDINGS_PATH, videoKey);
@@ -297,13 +308,19 @@ wss.on('connection', conn => {
               message.sdpOffer,
               videoKey,
             );
-            return sendMessage(
+            sendMessage(
               {
                 id: 'startResponse',
                 sdpAnswer,
               },
               conn,
             );
+            await makeSureRecorderIsRunning(sessionId);
+            console.log(
+              `#${sessionId} Recording - ${numSessions() +
+                1} job(s) now running`,
+            );
+            return null;
           }
 
           case 'stop': {
