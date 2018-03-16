@@ -1,4 +1,5 @@
 /* global window, document, navigator */
+import 'webrtc-adapter';
 import Recorder from './lib';
 
 const wait = seconds => new Promise(resolve => setTimeout(resolve, seconds));
