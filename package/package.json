@@ -1,6 +1,6 @@
 {
   "name": "@simple-contacts/stream-recorder",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "main": "./index.js",
   "description": "API for video.simplecontacts.com",
   "dependencies": {}
