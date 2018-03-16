@@ -7,8 +7,11 @@
     "test": "eslint . && flow check && jest .",
     "start:prod": "yarn bundle && NODE_ENV=production pm2 start pm2.config.js",
     "bundle": "yarn bundle:admin && yarn bundle:lib",
-    "bundle:admin": "webpack --mode production --output-path dist/admin --output-filename index.js client/admin.js",
-    "bundle:lib": "./node_modules/.bin/webpack --output-library StreamRecorder --output-library-target umd --mode production --output-path dist/api --output-filename client.js client/lib.js"
+    "bundle:admin":
+      "webpack --mode production --output-path dist/admin --output-filename index.js client/admin.js",
+    "bundle:lib":
+      "./node_modules/.bin/webpack --output-library StreamRecorder --output-library-target umd --mode production --output-path dist/api --output-filename client.js client/lib.js",
+    "publish-client": "bin/publish"
   },
   "dependencies": {
     "aws-sdk": "^2.200.0",
