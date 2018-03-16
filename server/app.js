@@ -200,10 +200,13 @@ async function cleanup(sessionId) {
 
   const pipeline = getPipeline(sessionId);
   const recorder = getRecorder(sessionId);
-  if (recorder) {
+  if (recorder && recorderState !== 'STOP') {
     addToTimeline(sessionId, 'server:recorder.stop');
     recorder.stop();
+  } else {
+    addToTimeline(sessionId, 'server:recorderAlreadyStopped');
   }
+
   if (pipeline) {
     addToTimeline(sessionId, 'server:pipeline.release');
     pipeline.release();
@@ -319,6 +322,12 @@ wss.on('connection', conn => {
             console.log(
               `#${sessionId} Recording - ${numSessions() +
                 1} job(s) now running`,
+            );
+            sendMessage(
+              {
+                id: 'recordingStarted',
+              },
+              conn,
             );
             return null;
           }
