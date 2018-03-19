@@ -53,7 +53,7 @@ export default (url, userId, logError = console.error) =>
       try {
         switch (parsedMessage.id) {
           case 'startResponse': {
-            await processAnswer(parsedMessage.sdpAnswer);
+            return await processAnswer(parsedMessage.sdpAnswer);
           }
           case 'recordingStarted': {
             return resolveStartStreaming();
