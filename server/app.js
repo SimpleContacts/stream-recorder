@@ -76,6 +76,10 @@ const getPipeline = sessionId =>
 const numSessions = () => Object.keys(getState().sessions).length;
 
 const addToTimeline = (sessionId, action, timestamp = Date.now()) => {
+  if (!globalState.sessions[sessionId]) {
+    return;
+  }
+
   if (!globalState.sessions[sessionId].timeline) {
     globalState.sessions[sessionId].timeline = [];
   }
