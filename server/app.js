@@ -234,6 +234,7 @@ async function cleanup(sessionId) {
 }
 
 async function stop(sessionId, videoKey) {
+  addToTimeline(sessionId, 'server:stop');
   if (!globalState.sessions[sessionId]) {
     throw new Error('Already stopped!');
   }
@@ -373,6 +374,7 @@ wss.on('connection', conn => {
           },
         });
 
+        addToTimeline(sessionId, e.message);
         const debug = await cleanup(sessionId);
         return sendMessage(
           {
