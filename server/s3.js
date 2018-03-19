@@ -18,15 +18,9 @@ const s3 = new AWS.S3({
   s3: { useDualstack: true },
 });
 
-export function getSignedDownloadUrl(
-  key: string,
-  options?: { expires?: number } = {},
-): string {
-  return s3.getSignedUrl('getObject', {
-    Bucket: conf.get('aws_s3_exam_bucket'),
-    Key: guard(string)(key),
-    Expires: options.expires ? guard(number)(options.expires) : 600,
-  });
+export function getSignedDownloadUrl(key: string): string {
+  const bucket = conf.get('aws_s3_exam_bucket');
+  return `https://${bucket}.s3.dualstack.us-east-1.amazonaws.com/${key}`;
 }
 
 export async function upload(video: Buffer, key: string) {
