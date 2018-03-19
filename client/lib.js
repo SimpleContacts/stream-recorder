@@ -9,6 +9,7 @@ export default (url, userId, logError = console.error) =>
 
     let pc = null;
     let webRtcPeer = null;
+    let startTimeout = null;
     let resolveStartStreaming = null;
     let rejectStartStreaming = null;
     let resolveStopStreaming = null;
@@ -45,7 +46,18 @@ export default (url, userId, logError = console.error) =>
         sdp,
       });
 
-      return pc.setRemoteDescription(answer);
+      pc.setRemoteDescription(answer);
+
+      // Lets make a timeout, the server should recieve something within 3 seconds.
+      startTimeout = setTimeout(() => {
+        const e = new Error('Media Stream never made it to the server');
+        logError(e);
+        hasServerError = e;
+        rejectStartStreaming(e);
+        clearInterval(statsInterval);
+        ws.close();
+        pc.close();
+      }, 3000);
     }
 
     ws.onmessage = async message => {
@@ -56,6 +68,7 @@ export default (url, userId, logError = console.error) =>
             return await processAnswer(parsedMessage.sdpAnswer);
           }
           case 'recordingStarted': {
+            clearTimeout(startTimeout);
             return resolveStartStreaming();
           }
           case 'error': {
@@ -74,6 +87,7 @@ export default (url, userId, logError = console.error) =>
             return onRemoteIceCandidate(parsedMessage.candidate);
           case 'uploadSuccess':
             ws.close();
+            clearInterval(statsInterval);
             return resolveStopStreaming(parsedMessage.payload);
           default:
             return logError('Unrecognized message', parsedMessage);

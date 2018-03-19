@@ -29,7 +29,7 @@ const testRecord = async wrapperDiv => {
       'admin',
     );
 
-    div.innerHTML = 'Start recording...';
+    div.innerHTML = 'Starting recorder...';
     await recorder.start(
       stream,
       ({ videoBytesSent, networkType, destination }) => {

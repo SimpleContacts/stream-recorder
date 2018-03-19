@@ -312,9 +312,9 @@ wss.on('connection', conn => {
   globalState.sessions[sessionId] = { start: Date.now() };
   addToTimeline(sessionId, 'ws_open');
 
-  conn.on('error', () => {
+  conn.on('error', e => {
     const error = new Error('Connection error');
-    console.error(error);
+    console.error(error, e);
     Raven.captureException(error, {
       extra: {
         sessionId,
@@ -322,6 +322,7 @@ wss.on('connection', conn => {
         globalState: JSON.parse(JSON.stringify(globalState)),
       },
     });
+    addToTimeline(sessionId, e.message);
     cleanup(sessionId);
   });
 
