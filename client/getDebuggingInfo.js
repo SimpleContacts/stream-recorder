@@ -12,15 +12,21 @@ export default video => {
       }
     });
 
-    const candidatePair = candidatesPairs.reduce((acc, c) => {
-      if (c.bytesSent >= acc.bytesSent) {
-        return c;
-      }
-      return acc;
-    });
+    let candidatePair = null;
+    let remoteCandidate = null;
+    let localCandidate = null;
 
-    const remoteCandidate = video.get(candidatePair.remoteCandidateId);
-    const localCandidate = video.get(candidatePair.localCandidateId);
+    if (candidatesPairs.length) {
+      candidatePair = candidatesPairs.reduce((acc, c) => {
+        if (c.bytesSent >= acc.bytesSent) {
+          return c;
+        }
+        return acc;
+      });
+
+      remoteCandidate = video.get(candidatePair.remoteCandidateId);
+      localCandidate = video.get(candidatePair.localCandidateId);
+    }
 
     const destination =
       remoteCandidate &&

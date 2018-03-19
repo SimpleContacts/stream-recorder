@@ -129,7 +129,7 @@ async function makeSureRecorderIsRunning(sessionId) {
   }
 }
 
-async function start(sessionId, _ws, sdpOffer, videoKey) {
+async function start(sessionId, conn, sdpOffer, videoKey) {
   console.log(
     `#${sessionId} Started - ${numSessions() + 1} job(s) now running`,
   );
@@ -174,7 +174,7 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
         id: 'iceCandidate',
         candidate,
       },
-      _ws,
+      conn,
     );
   });
 
@@ -193,9 +193,26 @@ async function start(sessionId, _ws, sdpOffer, videoKey) {
     addToTimeline(sessionId, `server:incoming${s.mediaType}`);
     await recorder.record();
     globalState.sessions[sessionId].recording = true;
+
+    await makeSureRecorderIsRunning(sessionId);
+    console.log(
+      `#${sessionId} Recording - ${numSessions() + 1} job(s) now running`,
+    );
+    sendMessage(
+      {
+        id: 'recordingStarted',
+      },
+      conn,
+    );
   });
 
-  return sdpAnswer;
+  return sendMessage(
+    {
+      id: 'startResponse',
+      sdpAnswer,
+    },
+    conn,
+  );
 }
 
 async function cleanup(sessionId) {
@@ -315,31 +332,7 @@ wss.on('connection', conn => {
         message = JSON.parse(_message);
         switch (message.id) {
           case 'start': {
-            const sdpAnswer = await start(
-              sessionId,
-              conn,
-              message.sdpOffer,
-              videoKey,
-            );
-            sendMessage(
-              {
-                id: 'startResponse',
-                sdpAnswer,
-              },
-              conn,
-            );
-            await makeSureRecorderIsRunning(sessionId);
-            console.log(
-              `#${sessionId} Recording - ${numSessions() +
-                1} job(s) now running`,
-            );
-            sendMessage(
-              {
-                id: 'recordingStarted',
-              },
-              conn,
-            );
-            return null;
+            return start(sessionId, conn, message.sdpOffer, videoKey);
           }
 
           case 'stop': {
