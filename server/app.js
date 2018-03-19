@@ -187,16 +187,15 @@ async function start(sessionId, conn, sdpOffer, videoKey) {
 
   // start recording only after media arrives
   webRtcEndpoint.on('MediaFlowOutStateChange', async s => {
+    addToTimeline(sessionId, `server:incoming${s.mediaType}`);
     globalState.sessions[sessionId][`incoming_${s.mediaType}`] = true;
 
     if (
       globalState.sessions[sessionId].incoming_AUDIO &&
       globalState.sessions[sessionId].incoming_VIDEO
     ) {
-      addToTimeline(sessionId, 'server:connectRecorder');
+      addToTimeline(sessionId, 'server:record');
       await client.connect(webRtcEndpoint, recorder);
-
-      addToTimeline(sessionId, `server:incoming${s.mediaType}`);
       await recorder.record();
       globalState.sessions[sessionId].recording = true;
 
