@@ -133,6 +133,70 @@ async function makeSureRecorderIsRunning(sessionId) {
   }
 }
 
+async function cleanup(sessionId) {
+  let recorderState;
+  try {
+    recorderState = await globalState.sessions[sessionId].recorder.getState();
+  } catch (e) {
+    // nothing
+    console.error(e);
+  }
+
+  const pipeline = getPipeline(sessionId);
+  const recorder = getRecorder(sessionId);
+  if (recorder && recorderState !== 'STOP') {
+    addToTimeline(sessionId, 'server:recorder.stop');
+    recorder.stop();
+  } else {
+    addToTimeline(sessionId, 'server:recorderAlreadyStopped');
+  }
+
+  if (pipeline) {
+    addToTimeline(sessionId, 'server:pipeline.release');
+    pipeline.release();
+  }
+
+  globalState.sessions[sessionId].stop = Date.now();
+  console.log(`#${sessionId} Stopped - ${numSessions()} job(s) now running`);
+  return upload(
+    JSON.stringify(
+      { ...globalState.sessions[sessionId], recorderState },
+      null,
+      2,
+    ),
+    `videoDebug/${globalState.processId}-${sessionId}.txt`,
+  );
+}
+
+async function captureException(e, conn, sessionId, videoKey, message) {
+  console.error(e);
+  // Lets not throw here, otherwise we may break other sessions who are recording.
+  Raven.captureException(e, {
+    extra: {
+      sessionId,
+      videoKey,
+      message,
+      session: JSON.parse(JSON.stringify(globalState.sessions[sessionId])),
+      globalState: JSON.parse(JSON.stringify(globalState)),
+    },
+  });
+
+  addToTimeline(sessionId, e.message);
+  const debug = await cleanup(sessionId);
+  return sendMessage(
+    {
+      id: 'error',
+      debugUrl: debug.url,
+      message,
+      error: e.stack,
+      // process.env.NODE_ENV === 'production'
+      //   ? 'Server Side Error'
+      //   : e.stack,
+    },
+    conn,
+  );
+}
+
 async function start(sessionId, conn, sdpOffer, videoKey) {
   console.log(
     `#${sessionId} Started - ${numSessions() + 1} job(s) now running`,
@@ -191,27 +255,37 @@ async function start(sessionId, conn, sdpOffer, videoKey) {
 
   // start recording only after media arrives
   webRtcEndpoint.on('MediaFlowOutStateChange', async s => {
-    addToTimeline(sessionId, `server:incoming${s.mediaType}`);
-    globalState.sessions[sessionId][`incoming_${s.mediaType}`] = true;
+    try {
+      addToTimeline(sessionId, `server:incoming${s.mediaType}`);
+      globalState.sessions[sessionId][`incoming_${s.mediaType}`] = true;
 
-    if (
-      globalState.sessions[sessionId].incoming_AUDIO &&
-      globalState.sessions[sessionId].incoming_VIDEO
-    ) {
-      addToTimeline(sessionId, 'server:record');
-      await client.connect(webRtcEndpoint, recorder);
-      await recorder.record();
-      globalState.sessions[sessionId].recording = true;
+      if (
+        globalState.sessions[sessionId].incoming_AUDIO &&
+        globalState.sessions[sessionId].incoming_VIDEO
+      ) {
+        addToTimeline(sessionId, 'server:record');
+        await client.connect(webRtcEndpoint, recorder);
+        await recorder.record();
+        globalState.sessions[sessionId].recording = true;
 
-      await makeSureRecorderIsRunning(sessionId);
-      console.log(
-        `#${sessionId} Recording - ${numSessions() + 1} job(s) now running`,
-      );
-      sendMessage(
-        {
-          id: 'recordingStarted',
-        },
+        await makeSureRecorderIsRunning(sessionId);
+        console.log(
+          `#${sessionId} Recording - ${numSessions() + 1} job(s) now running`,
+        );
+        sendMessage(
+          {
+            id: 'recordingStarted',
+          },
+          conn,
+        );
+      }
+    } catch (e) {
+      captureException(
+        e,
         conn,
+        sessionId,
+        videoKey,
+        'ERROR IN MediaFlowOutStateChange',
       );
     }
   });
@@ -222,41 +296,6 @@ async function start(sessionId, conn, sdpOffer, videoKey) {
       sdpAnswer,
     },
     conn,
-  );
-}
-
-async function cleanup(sessionId) {
-  let recorderState;
-  try {
-    recorderState = await globalState.sessions[sessionId].recorder.getState();
-  } catch (e) {
-    // nothing
-    console.error(e);
-  }
-
-  const pipeline = getPipeline(sessionId);
-  const recorder = getRecorder(sessionId);
-  if (recorder && recorderState !== 'STOP') {
-    addToTimeline(sessionId, 'server:recorder.stop');
-    recorder.stop();
-  } else {
-    addToTimeline(sessionId, 'server:recorderAlreadyStopped');
-  }
-
-  if (pipeline) {
-    addToTimeline(sessionId, 'server:pipeline.release');
-    pipeline.release();
-  }
-
-  globalState.sessions[sessionId].stop = Date.now();
-  console.log(`#${sessionId} Stopped - ${numSessions()} job(s) now running`);
-  return upload(
-    JSON.stringify(
-      { ...globalState.sessions[sessionId], recorderState },
-      null,
-      2,
-    ),
-    `videoDebug/${globalState.processId}-${sessionId}.txt`,
   );
 }
 
@@ -317,17 +356,7 @@ wss.on('connection', conn => {
   addToTimeline(sessionId, 'ws_open');
 
   conn.on('error', e => {
-    const error = new Error('Connection error');
-    console.error(error, e);
-    Raven.captureException(error, {
-      extra: {
-        sessionId,
-        videoKey,
-        globalState: JSON.parse(JSON.stringify(globalState)),
-      },
-    });
-    addToTimeline(sessionId, e.message);
-    cleanup(sessionId);
+    captureException(e, conn, sessionId, videoKey, 'WEBSOCKET ERROR');
   });
 
   conn.on('close', () => {
@@ -364,34 +393,7 @@ wss.on('connection', conn => {
             throw new Error(`Invalid message ${message}`);
         }
       } catch (e) {
-        console.error(e);
-        // Lets not throw here, otherwise we may break other sessions who are recording.
-        Raven.captureException(e, {
-          extra: {
-            sessionId,
-            videoKey,
-            message,
-            session: JSON.parse(
-              JSON.stringify(globalState.sessions[sessionId]),
-            ),
-            globalState: JSON.parse(JSON.stringify(globalState)),
-          },
-        });
-
-        addToTimeline(sessionId, e.message);
-        const debug = await cleanup(sessionId);
-        return sendMessage(
-          {
-            id: 'error',
-            debugUrl: debug.url,
-            message,
-            error: e.stack,
-            // process.env.NODE_ENV === 'production'
-            //   ? 'Server Side Error'
-            //   : e.stack,
-          },
-          conn,
-        );
+        captureException(e, conn, sessionId, videoKey, message);
       }
     });
   });
