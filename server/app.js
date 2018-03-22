@@ -223,6 +223,9 @@ async function start(sessionId, conn, sdpOffer, videoKey) {
   globalState.sessions[sessionId].webRtcEndpoint = webRtcEndpoint;
   globalState.sessions[sessionId].recorder = recorder;
 
+  // don't cap quality.
+  await recorder.setMaxOutputBitrate(0);
+
   if (getCandidatesQueue(sessionId)) {
     addToTimeline(sessionId, 'server:flushQueuedCandidates');
     getCandidatesQueue(sessionId).forEach(candidate =>

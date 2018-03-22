@@ -47,11 +47,17 @@ const testRecord = async wrapperDiv => {
     await wait(3000);
 
     div.innerHTML = 'Stop recording...';
-    const { size, url, debugUrl } = await recorder.stop();
+    const { size, signedUrl, debugUrl } = await recorder.stop();
 
     const sizeInKb = parseInt(size / 1024, 10);
 
-    div.innerHTML = `&#10004; Successfully uploaded <strong>${sizeInKb}</strong>kb video to s3 <a href='${url}'>(download)</a> <a href='${debugUrl}'>(debug info)</a>`;
+    div.innerHTML = `&#10004; Successfully uploaded <strong>${sizeInKb}</strong>kb video to s3 <a href='${signedUrl}'>(download)</a> <a href='${debugUrl}'>(debug info)</a>`;
+
+    // add viewable video (chrome only because safari cannot play webm)
+    const video = document.createElement('video');
+    video.src = signedUrl;
+    video.controls = true;
+    wrapperDiv.appendChild(video);
   } catch (e) {
     div.innerHTML += `<strong>Failed! <a href='${e.debugUrl}'>(debug info)</a>`;
     div.innerHTML += `</strong> <pre>${e.stack}</pre>`;
