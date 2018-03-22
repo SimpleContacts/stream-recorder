@@ -354,7 +354,7 @@ async function onIceCandidate(sessionId, _candidate) {
  */
 wss.on('connection', conn => {
   const sessionId = ++globalState.numJobs;
-  const videoKey = createS3Key('webm');
+  const videoKey = createS3Key('mp4');
   globalState.sessions[sessionId] = { start: Date.now() };
   addToTimeline(sessionId, 'ws_open');
 
