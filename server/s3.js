@@ -29,7 +29,7 @@ export function getSignedDownloadUrl(
   });
 }
 
-export async function upload(video: Buffer, key: string) {
+export async function upload(video: Buffer | string, key: string) {
   await s3
     .upload({
       Bucket: conf.get('aws_s3_exam_bucket'),
@@ -43,7 +43,7 @@ export async function upload(video: Buffer, key: string) {
   )}.s3.dualstack.us-east-1.amazonaws.com/${key}`;
 
   return {
-    size: video.byteLength,
+    size: video.byteLength ? video.byteLength : video.length,
     url,
     signedUrl: getSignedDownloadUrl(key),
   };

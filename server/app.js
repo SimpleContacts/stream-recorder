@@ -171,13 +171,30 @@ async function cleanup(sessionId) {
 async function captureException(e, conn, sessionId, videoKey, message) {
   console.error(e);
   // Lets not throw here, otherwise we may break other sessions who are recording.
+
+  let serializedSession;
+  let serializedGlobalState;
+  try {
+    serializedSession = JSON.parse(
+      JSON.stringify(globalState.sessions[sessionId]),
+    );
+  } catch (e1) {
+    // ignore
+  }
+
+  try {
+    serializedGlobalState = JSON.parse(JSON.stringify(globalState));
+  } catch (e2) {
+    // ignore
+  }
+
   Raven.captureException(e, {
     extra: {
       sessionId,
       videoKey,
       message,
-      session: JSON.parse(JSON.stringify(globalState.sessions[sessionId])),
-      globalState: JSON.parse(JSON.stringify(globalState)),
+      session: serializedSession,
+      globalState: serializedGlobalState,
     },
   });
 
@@ -228,7 +245,7 @@ async function start(sessionId, conn, sdpOffer, videoKey) {
 
   if (getCandidatesQueue(sessionId)) {
     addToTimeline(sessionId, 'server:flushQueuedCandidates');
-    getCandidatesQueue(sessionId).forEach(candidate =>
+    (getCandidatesQueue(sessionId) || []).forEach(candidate =>
       webRtcEndpoint.addIceCandidate(candidate),
     );
     globalState.sessions[sessionId].candidatesQueue = [];
@@ -345,7 +362,7 @@ async function onIceCandidate(sessionId, _candidate) {
       sessionId,
     )
       ? [candidate]
-      : getCandidatesQueue(sessionId).concat(candidate);
+      : (getCandidatesQueue(sessionId) || []).concat(candidate);
   }
 }
 
