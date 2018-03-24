@@ -138,8 +138,7 @@ async function cleanup(sessionId) {
   try {
     recorderState = await globalState.sessions[sessionId].recorder.getState();
   } catch (e) {
-    // nothing
-    console.error(e);
+    Raven.captureException(e);
   }
 
   const pipeline = getPipeline(sessionId);
@@ -156,16 +155,22 @@ async function cleanup(sessionId) {
     pipeline.release();
   }
 
-  globalState.sessions[sessionId].stop = Date.now();
-  console.log(`#${sessionId} Stopped - ${numSessions()} job(s) now running`);
-  return upload(
-    JSON.stringify(
-      { ...globalState.sessions[sessionId], recorderState },
-      null,
-      2,
-    ),
-    `videoDebug/${globalState.processId}-${sessionId}.txt`,
-  );
+  try {
+    globalState.sessions[sessionId].stop = Date.now();
+    console.log(`#${sessionId} Stopped - ${numSessions()} job(s) now running`);
+    return upload(
+      JSON.stringify(
+        { ...globalState.sessions[sessionId], recorderState },
+        null,
+        2,
+      ),
+      `videoDebug/${globalState.processId}-${sessionId}.txt`,
+    );
+  } catch (e) {
+    Raven.captureException(e);
+  }
+
+  return null;
 }
 
 async function captureException(e, conn, sessionId, videoKey, message) {
