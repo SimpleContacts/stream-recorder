@@ -1,4 +1,4 @@
-## So you've decided to check out the webrtc-video repository?
+## So you've decided to check out the stream-recorder repository?
 
 Turn back while you still can!
 
