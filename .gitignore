@@ -6,3 +6,4 @@ config/*
 .DS_Store
 /dist
 /package/client.js
+/package/client.js.map
