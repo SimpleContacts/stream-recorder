@@ -1,6 +1,6 @@
 #!/bin/bash
 
-./node_modules/.bin/webpack --output-library --devtool source-map StreamRecorder --output-library-target commonjs --mode development --output-path package --output-filename client.js client/lib.js
+./node_modules/.bin/webpack --devtool source-map --output-library StreamRecorder --output-library-target commonjs --mode development --output-path package --output-filename client.js client/lib.js
 
 cd package
 yarn publish
