@@ -21,7 +21,7 @@ export default (url, userId, logError = console.error) =>
     // This ensurses subtle bugs don't get by and video is silently not recorded.
     let hasServerError = null;
 
-    // Lets store whether the streamign started. THis way we enforce its nto clicked twice.
+    // Lets store whether the streaming started. This way we enforce it's not clicked twice.
     let isStarted = false;
 
     ws.onerror = err => {
@@ -57,7 +57,7 @@ export default (url, userId, logError = console.error) =>
         clearInterval(statsInterval);
         ws.close();
         pc.close();
-      }, 3000);
+      }, 6000);
     }
 
     ws.onmessage = async message => {
