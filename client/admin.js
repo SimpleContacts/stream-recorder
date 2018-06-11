@@ -47,7 +47,10 @@ const testRecord = async wrapperDiv => {
     await wait(3000);
 
     div.innerHTML = 'Stop recording...';
-    const { size, signedUrl, debugUrl } = await recorder.stop();
+    const { size, signedUrl, debugUrl } = await recorder.stop({
+      someMetaField: 'bar',
+      someMetaField2: 'foo',
+    });
 
     const sizeInKb = parseInt(size / 1024, 10);
 

@@ -29,12 +29,17 @@ export function getSignedDownloadUrl(
   });
 }
 
-export async function upload(video: Buffer | string, key: string) {
+export async function upload(
+  video: Buffer | string,
+  key: string,
+  meta?: Object,
+) {
   await s3
     .upload({
       Bucket: conf.get('aws_s3_exam_bucket'),
       Key: key,
       Body: video,
+      Metadata: meta || {},
     })
     .promise();
 

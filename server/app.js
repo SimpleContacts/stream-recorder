@@ -324,7 +324,7 @@ async function start(sessionId, conn, sdpOffer, videoKey) {
   );
 }
 
-async function stop(sessionId, videoKey) {
+async function stop(sessionId, videoKey, meta = {}) {
   addToTimeline(sessionId, 'server:stop');
   if (!globalState.sessions[sessionId]) {
     throw new Error('Already stopped!');
@@ -337,7 +337,7 @@ async function stop(sessionId, videoKey) {
 
   // Upload file
   const data = await readFile(filepath);
-  const response = await upload(data, videoKey);
+  const response = await upload(data, videoKey, meta);
 
   // NOTE: Order is important, only remove file if upload was successful.
   await unlink(filepath);
@@ -402,7 +402,7 @@ wss.on('connection', conn => {
           }
 
           case 'stop': {
-            const payload = await stop(sessionId, videoKey);
+            const payload = await stop(sessionId, videoKey, message.meta);
             return sendMessage({ id: 'uploadSuccess', payload }, conn);
           }
 

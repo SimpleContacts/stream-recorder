@@ -1,5 +1,12 @@
 /* eslint-disable */
+import { guard, mapping, string } from 'decoders';
 import getDebuggingInfo from './getDebuggingInfo';
+
+const mapToObject = map =>
+  Array.from(map).reduce(
+    (acc, [key, value]) => Object.assign(acc, { [key]: value }),
+    {},
+  );
 
 const wait = seconds => new Promise(resolve => setTimeout(resolve, seconds));
 
@@ -179,7 +186,7 @@ export default (url, userId, logError = console.error) =>
       webRtcPeer.processAnswer(message.sdpAnswer);
     }
 
-    async function stop() {
+    async function stop(meta) {
       return new Promise((resolve, reject) => {
         clearInterval(statsInterval);
         if (resolveStopStreaming) {
@@ -192,6 +199,7 @@ export default (url, userId, logError = console.error) =>
 
         return sendMessage({
           id: 'stop',
+          meta: meta ? mapToObject(guard(mapping(string))(meta)) : {},
         });
       });
     }

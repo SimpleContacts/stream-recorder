@@ -42,6 +42,7 @@ export default video => {
       destination,
     };
   } catch (e) {
+    // eslint-disable-next-line
     console.error(e);
   }
 
