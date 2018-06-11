@@ -7,10 +7,8 @@
     "test": "eslint . && flow check && jest .",
     "start:prod": "yarn bundle && NODE_ENV=production pm2 start pm2.config.js",
     "bundle": "yarn bundle:admin && yarn bundle:lib",
-    "bundle:admin":
-      "webpack --mode production --output-path dist/admin --output-filename index.js client/admin.js",
-    "bundle:lib":
-      "./node_modules/.bin/webpack --output-library StreamRecorder --output-library-target umd --mode production --output-path dist/api --output-filename client.js client/lib.js",
+    "bundle:admin": "webpack --mode production --plugin html-webpack-plugin --output-path dist --output-filename index.js client/admin.js",
+    "bundle:lib": "./node_modules/.bin/webpack --output-library StreamRecorder --output-library-target umd --mode production --output-path dist/api --output-filename client.js client/lib.js",
     "publish-client": "bin/publish"
   },
   "dependencies": {
@@ -31,6 +29,7 @@
     "@simple-contacts/babel-preset-sc": "^0.2.1",
     "@simple-contacts/eslint-config": "^0.1.5",
     "@simple-contacts/sc-scripts": "^0.4.1",
+    "html-webpack-plugin": "^3.2.0",
     "webpack": "^4.1.1",
     "webpack-cli": "^2.0.11",
     "webpack-dev-server": "^3.1.1"
