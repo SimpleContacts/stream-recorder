@@ -208,7 +208,7 @@ async function captureException(e, conn, sessionId, videoKey, message) {
   return sendMessage(
     {
       id: 'error',
-      debugUrl: debug.url,
+      debugUrl: debug && debug.url,
       message,
       error: e.stack,
       // process.env.NODE_ENV === 'production'
@@ -346,7 +346,7 @@ async function stop(sessionId, videoKey) {
   }
   const debug = await cleanup(sessionId);
 
-  return { ...response, debugUrl: debug.url };
+  return { ...response, debugUrl: debug && debug.url };
 }
 
 // As of Kurento Media Server 6.0, the WebRTC negotiation is done by exchanging ICE
@@ -358,9 +358,10 @@ async function stop(sessionId, videoKey) {
 async function onIceCandidate(sessionId, _candidate) {
   const candidate = kurento.getComplexType('IceCandidate')(_candidate);
 
-  if (getWebRtcEndpoint(sessionId)) {
+  const endpoint = getWebRtcEndpoint(sessionId);
+  if (endpoint) {
     addToTimeline(sessionId, 'server:addCandidate');
-    getWebRtcEndpoint(sessionId).addIceCandidate(candidate);
+    endpoint.addIceCandidate(candidate);
   } else {
     addToTimeline(sessionId, 'server:queueCandidate');
     globalState.sessions[sessionId].candidatesQueue = !getCandidatesQueue(
