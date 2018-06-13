@@ -34,17 +34,19 @@ await recorder.start(
 Stopping the recorder:
 
 ```
- const { size, signedUrl, debugUrl } = await recorder.stop();
+ const { size, signedUrl, debugUrl } = await recorder.stop({
+   someMetaDataForS3: 'must-be-a-string'
+ });
 ```
 
 ### Health Check
 
-You can make sure everything is running as usual by hitting video.simplecontacts.com/admin
+You can make sure everything is running as intended staging: https://recorder-master.stage.simplecontacts.com
 
 ### Running locally
 
-1.  Download and install Docker: https://www.docker.com/community-edition#/download . Install nginx with homebrew `brew install nginx`
-2.  Run `yarn start-kurento` (8888).
-3.  In a new terminal window, run `yarn start`, to run server (8443) and web client (8080).
-4.  In a new terminal window, run `yarn start-nginx`, to reverse proxy all our services with SSL using dummy key.
-5.  Open https://localhost:8088/admin to test
+1. Download and install Docker: https://www.docker.com/community-edition#/download . Install nginx with homebrew `brew install nginx`
+2. Run `yarn start-kurento` (8888).
+3. In a new terminal window, run `yarn start`, to run server (8443) and web client (8080).
+4. In a new terminal window, run `yarn start-nginx`, to reverse proxy all our services with SSL using dummy key.
+5. Open https://localhost:8088/admin to test

@@ -15,8 +15,6 @@ import conf from '../config';
 import { upload, createS3Key } from './s3';
 
 const RECORDINGS_PATH = conf.get('recordings_path') || '/tmp/kurento';
-const ADMINJS_PATH = path.resolve(__dirname, '../dist/admin/index.js');
-const CLIENTJS_PATH = path.resolve(__dirname, '../dist/api/client.js');
 
 const readFile = promisify(fs.readFile);
 const unlink = promisify(fs.unlink);
@@ -24,17 +22,6 @@ const unlink = promisify(fs.unlink);
 const app = express();
 
 const wait = seconds => new Promise(resolve => setTimeout(resolve, seconds));
-
-// These files are served by express in production.
-if (process.env.NODE_ENV === 'production') {
-  const adminJs = fs.readFileSync(ADMINJS_PATH);
-  const clientJs = fs.readFileSync(CLIENTJS_PATH);
-  app.get('/admin', (req, res) => {
-    res.send(`<body><script src="/admin/index.js"></script></body>`);
-  });
-  app.get('/admin/index.js', (req, res) => res.send(adminJs));
-  app.get('/client.js', (req, res) => res.send(clientJs));
-}
 
 // Global Error catching.
 // NOTE If no DSN is provided here, there are no side-effects.
