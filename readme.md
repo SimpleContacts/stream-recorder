@@ -8,7 +8,7 @@ No just kidding. It's perfectly safe in here. It's just a node server that commu
 
 Starting the recorder:
 
-```
+```javascript
 const recorder = await Recorder(
   process.env.NODE_ENV === 'production'
     ? 'wss://video.simplecontacts.com/recorder'
@@ -33,7 +33,7 @@ await recorder.start(
 
 Stopping the recorder:
 
-```
+```javascript
  const { size, signedUrl, debugUrl } = await recorder.stop({
    someMetaDataForS3: 'must-be-a-string'
  });
