@@ -6,8 +6,7 @@
     "start-nginx": "bin/start-nginx",
     "test": "eslint . && flow check && jest .",
     "start:prod": "NODE_ENV=production pm2 start pm2.config.js",
-    "bundle:admin":
-      "webpack --mode production --plugin html-webpack-plugin --output-path dist --output-filename index.js client/admin.js",
+    "bundle:admin": "webpack --mode production --plugin html-webpack-plugin --output-path dist --output-filename index.js client/admin.js",
     "publish-client": "bin/publish"
   },
   "dependencies": {
@@ -18,6 +17,7 @@
     "idx": "^2.2.0",
     "kurento-client": "https://github.com/Kurento/kurento-client-js#master",
     "moment": "^2.20.1",
+    "node-fetch": "^2.2.0",
     "pm2": "^2.9.3",
     "raven": "^2.4.2",
     "shortid": "^2.2.8",

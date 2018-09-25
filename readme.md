@@ -24,8 +24,7 @@ await recorder.start(
     const destinationInfo = destination
       ? `to ${destination} (${networkType})`
       : '';
-    bytesTransferedDiv.innerHTML = `
-      Streamed <strong>${video}</strong>kb ${destinationInfo}<br />
+    console.log(`${video}kb ${destinationInfo}`)
   `;
   },
 );
@@ -34,9 +33,9 @@ await recorder.start(
 Stopping the recorder:
 
 ```javascript
- const { size, signedUrl, debugUrl } = await recorder.stop({
+ const { size } = await recorder.stop({
    someMetaDataForS3: 'must-be-a-string'
- });
+ }, 'http://some-url-to-post-video.com');
 ```
 
 ### Health Check
