@@ -7,6 +7,11 @@ import moment from 'moment';
 import { string, number, guard } from 'decoders';
 import conf from '../config';
 
+/**
+ * TODO DEPRECATE THIS FILE after interactive exam is established
+ * Allow clients to provide a postUrl to keep this module decoupled and configureless
+ */
+
 // It is important we use a client constructor rather than changing a global configuration
 // that may affect packages or other parts of the system.
 // See https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/setting-region.html

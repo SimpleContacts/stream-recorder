@@ -186,7 +186,7 @@ export default (url, userId, logError = console.error) =>
       webRtcPeer.processAnswer(message.sdpAnswer);
     }
 
-    async function stop(meta) {
+    async function stop(meta, postUrl) {
       return new Promise((resolve, reject) => {
         clearInterval(statsInterval);
         if (resolveStopStreaming) {
@@ -200,6 +200,7 @@ export default (url, userId, logError = console.error) =>
         return sendMessage({
           id: 'stop',
           meta: meta ? mapToObject(guard(mapping(string))(meta)) : {},
+          postUrl: postUrl ? guard(string)(postUrl) : null,
         });
       });
     }

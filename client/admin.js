@@ -54,6 +54,9 @@ const testRecord = async wrapperDiv => {
 
     const sizeInKb = parseInt(size / 1024, 10);
 
+    /**
+     * TODO Make appropiate updates when s3 is deprecated.
+     */
     div.innerHTML = `&#10004; Successfully uploaded <strong>${sizeInKb}</strong>kb video to s3 <a href='${signedUrl}'>(download)</a> <a href='${debugUrl}'>(debug info)</a>`;
 
     // add viewable video (chrome only because safari cannot play webm)
