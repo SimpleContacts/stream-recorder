@@ -113,7 +113,7 @@ export default (url, userId, logError = console.error) =>
         pc = new RTCPeerConnection({
           iceServers: [
             {
-              url: 'turn:video.simplecontacts.com:3478',
+              urls: ['turn:video.simplecontacts.com:3478'],
               credential: 'sc',
               username: 'opto',
             },
