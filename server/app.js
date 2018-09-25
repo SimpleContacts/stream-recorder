@@ -10,8 +10,13 @@ import Raven from 'raven';
 import ws from 'ws';
 import path from 'path';
 import idx from 'idx';
+import fetch from 'node-fetch';
 import conf from '../config';
 
+/**
+ * TODO Remove references to s3
+ * Allow clients to provide a postUrl to keep this module decoupled and configure-less
+ */
 import { upload, createS3Key } from './s3';
 
 const RECORDINGS_PATH = conf.get('recordings_path') || '/tmp/kurento';
@@ -311,7 +316,7 @@ async function start(sessionId, conn, sdpOffer, videoKey) {
   );
 }
 
-async function stop(sessionId, videoKey, meta = {}) {
+async function stop(sessionId, videoKey, meta = {}, postUrl) {
   addToTimeline(sessionId, 'server:stop');
   if (!globalState.sessions[sessionId]) {
     throw new Error('Already stopped!');
@@ -324,14 +329,26 @@ async function stop(sessionId, videoKey, meta = {}) {
 
   // Upload file
   const data = await readFile(filepath);
-  const response = await upload(data, videoKey, meta);
+
+  let response;
+  if (postUrl) {
+    response = await fetch(postUrl, {
+      method: 'PUT',
+      body: data,
+      headers: meta,
+    });
+  } else {
+    // TODO eventually deprecate this.
+    response = await upload(data, videoKey, meta);
+  }
 
   // NOTE: Order is important, only remove file if upload was successful.
   await unlink(filepath);
-  if (response.size === 0) {
+  const debug = await cleanup(sessionId);
+
+  if (data.length < 100) {
     throw new Error('No frames captured');
   }
-  const debug = await cleanup(sessionId);
 
   return { ...response, debugUrl: debug && debug.url };
 }
@@ -364,7 +381,7 @@ async function onIceCandidate(sessionId, _candidate) {
  */
 wss.on('connection', conn => {
   const sessionId = ++globalState.numJobs;
-  const videoKey = createS3Key('mp4');
+  const videoKey = createS3Key('mp4'); // <-- TODO DEPRECATE
   globalState.sessions[sessionId] = { start: Date.now() };
   addToTimeline(sessionId, 'ws_open');
 
@@ -389,7 +406,12 @@ wss.on('connection', conn => {
           }
 
           case 'stop': {
-            const payload = await stop(sessionId, videoKey, message.meta);
+            const payload = await stop(
+              sessionId,
+              videoKey,
+              message.meta,
+              message.postUrl,
+            );
             return sendMessage({ id: 'uploadSuccess', payload }, conn);
           }
 
