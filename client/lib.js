@@ -140,8 +140,8 @@ export default (url, userId, logError = console.error) =>
 
         // We need both audio and video tracks for the encoding to work for
         // some weird reason. Otherwise we get 0 bytes.
-        pc.addTrack(videoStream.getVideoTracks()[0]);
-        pc.addTrack(videoStream.getAudioTracks()[0]);
+        pc.addTrack(videoStream.getVideoTracks()[0], videoStream);
+        pc.addTrack(videoStream.getAudioTracks()[0], videoStream);
 
         // Lets pump our status to our orchestration server
         statsInterval = setInterval(async () => {
