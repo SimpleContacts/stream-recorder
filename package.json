@@ -21,7 +21,7 @@
     "pm2": "^2.9.3",
     "raven": "^2.4.2",
     "shortid": "^2.2.8",
-    "webrtc-adapter": "^6.1.4",
+    "webrtc-adapter": "^7.2.9",
     "ws": "^4.0.0"
   },
   "devDependencies": {
