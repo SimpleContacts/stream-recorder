@@ -1,1 +1,6 @@
-{ "presets": ["@simple-contacts/sc"] }
+{
+  "plugins": [
+    "@babel/plugin-transform-flow-strip-types",
+    "@babel/plugin-transform-modules-commonjs"
+  ]
+}
