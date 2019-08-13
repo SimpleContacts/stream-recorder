@@ -14,6 +14,7 @@ module.exports = {
             args: `
               client/admin.js
               --mode development
+              --host 0.0.0.0
               --port 8080
               --info false
               --public localhost:8088
