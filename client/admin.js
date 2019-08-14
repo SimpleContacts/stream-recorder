@@ -18,7 +18,9 @@ const testRecord = async wrapperDiv => {
     div.innerHTML = 'Request user video and audio';
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
-      video: true,
+      video: /Android|iPad|iPhone|iPod/.test(navigator.platform)
+        ? { facingMode: 'user' }
+        : true,
     });
 
     div.innerHTML = 'Setting up...';

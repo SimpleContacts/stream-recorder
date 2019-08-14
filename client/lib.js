@@ -1,5 +1,4 @@
 /* eslint-disable */
-import { guard, mapping, string } from 'decoders';
 import getDebuggingInfo from './getDebuggingInfo';
 
 const mapToObject = map =>
@@ -197,10 +196,18 @@ export default (url, userId, logError = console.error) =>
 
         pc.close();
 
+        if (postUrl && typeof postUrl !== 'string') {
+          throw new Error('PostUrl is not a string');
+        }
+
+        if (meta && Object.values(meta).find(v => typeof v !== 'string')) {
+          throw new Error('Meta values must be a string');
+        }
+
         return sendMessage({
           id: 'stop',
-          meta: meta ? mapToObject(guard(mapping(string))(meta)) : {},
-          postUrl: postUrl ? guard(string)(postUrl) : null,
+          meta: meta ? mapToObject(meta) : {},
+          postUrl: postUrl ? postUrl : null,
         });
       });
     }
