@@ -1,0 +1,27 @@
+#!/bin/bash
+
+MONOREPO_ROOT="$(git rev-parse --show-toplevel)"
+
+##
+## This allows us to have a node version per project.
+##
+NVM_DIR="$MONOREPO_ROOT/.nvm"
+source "$(brew --prefix nvm)/nvm.sh"
+
+nvm install "$(cat ".node-version")"
+npm install yarn@$YARN_VERSION -g
+
+for DIR in "$MONOREPO_ROOT/"*
+do
+  if [ -f "$DIR/.node-version" ]
+  then
+    nvm install "$(cat "$DIR/.node-version")"
+
+    # All projects use same version of yarn
+    npm install yarn@$YARN_VERSION -g
+  fi
+done
+
+
+# Install nginx
+brew install nginx

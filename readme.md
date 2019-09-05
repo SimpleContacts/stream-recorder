@@ -33,9 +33,12 @@ await recorder.start(
 Stopping the recorder:
 
 ```javascript
- const { size } = await recorder.stop({
-   someMetaDataForS3: 'must-be-a-string'
- }, 'http://some-url-to-post-video.com');
+const { size } = await recorder.stop(
+  {
+    someMetaDataForS3: 'must-be-a-string',
+  },
+  'http://some-url-to-post-video.com',
+);
 ```
 
 ### Health Check
@@ -44,8 +47,9 @@ You can make sure everything is running as intended staging: https://recorder-ma
 
 ### Running locally
 
-1. Download and install Docker: https://www.docker.com/community-edition#/download . Install nginx with homebrew `brew install nginx`
-2. Run `yarn start-kurento` (8888).
-3. In a new terminal window, run `yarn start`, to run server (8443) and web client (8080).
-4. In a new terminal window, run `yarn start-nginx`, to reverse proxy all our services with SSL using dummy key.
-5. Open https://localhost:8088/admin to test
+1. Install required system level dependencies (i.e. nginx and node) by running `./bin/bootstrap`.
+2. Download and install Docker: https://www.docker.com/community-edition#/download .
+3. Run `yarn start-kurento` (8888).
+4. In a new terminal window, run `yarn start`, to run server (8443) and web client (8080).
+5. In a new terminal window, run `yarn start-nginx`, to reverse proxy all our services with SSL using dummy key.
+6. Open https://localhost:8088/admin to test
