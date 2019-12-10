@@ -1,5 +1,6 @@
 /* eslint-disable */
 import getDebuggingInfo from './getDebuggingInfo';
+import VideoChat from './videoChat';
 
 const mapToObject = map =>
   Array.from(map).reduce(
@@ -219,3 +220,5 @@ export default (url, userId, logError = console.error) =>
 
     ws.onopen = () => resolveStreamer({ start, stop });
   });
+
+export { VideoChat };

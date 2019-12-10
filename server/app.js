@@ -42,16 +42,68 @@ Raven.config(conf.get('sentry_dsn'), {
   }
 });
 
+type Pipeline = {| create: () => void, release: () => void |};
+type Candidate = mixed;
+type Endpoint = {| addIceCandidate: Candidate => void |};
+type Recorder = {| stop: () => void, getState: () => mixed |};
+
+type KurentoClient = {|
+  connect: (Endpoint, Recorder) => Promise<void>,
+  create: ('MediaPipeline') => Promise<Pipeline>,
+|};
+
+type Session = {
+  // The websocket connection.
+  conn: any,
+
+  // For debugging
+  timeline?: Array<string>,
+
+  /** Related to recording **/
+  start: number,
+  stop?: number,
+  recording?: boolean,
+  incoming_AUDIO?: boolean,
+  incoming_VIDEO?: boolean,
+  client?: mixed, // debug information
+  webRtcEndpoint?: Endpoint,
+  pipeline?: Pipeline,
+  recorder?: Recorder,
+  candidatesQueue?: Array<Candidate>,
+
+  /** Related to calls **/
+  name?: string,
+};
+
+type Call = {
+  isConnected: boolean,
+  caller: string,
+  callee: string,
+  messageQueue: {
+    caller: Array<mixed>,
+    callee: Array<mixed>,
+  },
+};
+
+type GlobalState = {|
+  kurentoClient: ?KurentoClient,
+  processId: number,
+  numJobs: number,
+  sessions: { [string | number]: Session },
+  calls: { [string | number]: Call },
+|};
+
 /*
  * Global State
  * This can be redux or soemthing else future.
  */
-const globalState = {
+const globalState: GlobalState = {
   // This indicates the session.
   processId: Date.now(),
   // This is also used to give sessionId
   numJobs: 0,
   sessions: {},
+  calls: {},
   kurentoClient: null,
 };
 
@@ -118,8 +170,14 @@ function sendMessage(message, connection) {
 }
 
 async function makeSureRecorderIsRunning(sessionId) {
+  if (!globalState.sessions[sessionId].recorder) {
+    throw new Error('No recorder');
+  }
   let state = await globalState.sessions[sessionId].recorder.getState();
   while (state !== 'START') {
+    if (!globalState.sessions[sessionId].recorder) {
+      throw new Error('No recorder');
+    }
     state = await globalState.sessions[sessionId].recorder.getState();
     await wait(250);
   }
@@ -281,7 +339,10 @@ async function start(sessionId, conn, sdpOffer, videoKey) {
         globalState.sessions[sessionId].incoming_VIDEO
       ) {
         addToTimeline(sessionId, 'server:record');
-        await client.connect(webRtcEndpoint, recorder);
+        await client.connect(
+          webRtcEndpoint,
+          recorder,
+        );
         await recorder.record();
         globalState.sessions[sessionId].recording = true;
 
@@ -376,13 +437,64 @@ async function onIceCandidate(sessionId, _candidate) {
   }
 }
 
+async function connectCalls() {
+  for (const key in globalState.calls) {
+    const call = globalState.calls[key];
+
+    const callerSession = Object.values(globalState.sessions).find(
+      s => s.name === call.caller,
+    );
+
+    const calleeSession = Object.values(globalState.sessions).find(
+      s => s.name === call.callee,
+    );
+
+    if (callerSession && calleeSession) {
+      globalState.calls[key].isConnected = true;
+      sendMessage({ id: 'callConnected' }, callerSession.conn);
+      sendMessage({ id: 'callConnected' }, calleeSession.conn);
+    }
+  }
+}
+
+function getCall(caller) {
+  console.log(caller, globalState.calls);
+  return Object.values(globalState.calls).find(
+    c => c.callee === caller || c.caller === caller,
+  );
+}
+
+function getSessionFromName(name) {
+  return Object.values(globalState.sessions).find(s => s.name === name);
+}
+
+async function hangup(name) {
+  for (const key in globalState.calls) {
+    const call = globalState.calls[key];
+
+    if (call.caller === name) {
+      // notify the other caller of the hangup.
+      const session = getSessionFromName(call.callee);
+      sendMessage({ id: 'hangup' }, session.conn);
+      delete globalState.calls[key];
+    }
+
+    if (call.callee === name) {
+      // notify the other caller of the hangup.
+      const session = getSessionFromName(call.caller);
+      sendMessage({ id: 'hangup' }, session.conn);
+      delete globalState.calls[key];
+    }
+  }
+}
+
 /*
  * Management of WebSocket messages
  */
 wss.on('connection', conn => {
   const sessionId = ++globalState.numJobs;
   const videoKey = createS3Key('mp4'); // <-- TODO DEPRECATE
-  globalState.sessions[sessionId] = { start: Date.now() };
+  globalState.sessions[sessionId] = { start: Date.now(), conn };
   addToTimeline(sessionId, 'ws_open');
 
   conn.on('error', e => {
@@ -391,6 +503,13 @@ wss.on('connection', conn => {
 
   conn.on('close', () => {
     addToTimeline(sessionId, 'ws_closed');
+
+    // Close any calls that session was associated with.
+    const name = globalState.sessions[sessionId].name;
+    if (name) {
+      hangup(name);
+    }
+
     delete globalState.sessions[sessionId];
   });
 
@@ -400,6 +519,22 @@ wss.on('connection', conn => {
 
       try {
         message = JSON.parse(_message);
+        console.log(message.id);
+
+        if (message.relayToCallee) {
+          const myName = globalState.sessions[sessionId].name;
+          const call = getCall(myName);
+          const session = getSessionFromName(call.callee);
+          return sendMessage(message, session.conn);
+        }
+
+        if (message.relayToCaller) {
+          const myName = globalState.sessions[sessionId].name;
+          const call = getCall(myName);
+          const session = getSessionFromName(call.caller);
+          return sendMessage(message, session.conn);
+        }
+
         switch (message.id) {
           case 'start': {
             return start(sessionId, conn, message.sdpOffer, videoKey);
@@ -415,6 +550,48 @@ wss.on('connection', conn => {
             return sendMessage({ id: 'uploadSuccess', payload }, conn);
           }
 
+          case 'register': {
+            globalState.sessions[sessionId].name = message.name;
+            connectCalls();
+            return sendMessage({ id: 'registerSuccess' }, conn);
+          }
+
+          case 'call': {
+            const caller = globalState.sessions[sessionId].name;
+            const callee = message.name;
+
+            const callAlreadyInitiated = Object.values(globalState.calls).find(
+              c => c.callee === caller && c.caller === caller,
+            );
+
+            if (callAlreadyInitiated) {
+              throw new Error(`${caller} is already in a call`);
+            }
+
+            globalState.calls[Date.now()] = {
+              isConnected: false,
+              caller,
+              callee,
+              messageQueue: {
+                caller: [],
+                callee: [],
+              },
+            };
+
+            connectCalls();
+
+            return;
+          }
+
+          case 'hangup': {
+            // Close any calls that session was associated with.
+            const name = globalState.sessions[sessionId].name;
+            if (name) {
+              hangup(name);
+            }
+            return;
+          }
+
           case 'status': {
             globalState.sessions[sessionId].client = message.dump;
             return;
@@ -425,9 +602,10 @@ wss.on('connection', conn => {
             break;
 
           default:
-            throw new Error(`Invalid message ${message}`);
+            throw new Error(`Invalid message ${message.id}`);
         }
       } catch (e) {
+        console.error(e);
         captureException(e, conn, sessionId, videoKey, message);
       }
     });
