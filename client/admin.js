@@ -93,10 +93,7 @@ const testCall = async (wrapperDiv, isCaller) => {
 
   div.innerHTML = 'Registering...';
   const chat = await VideoChat({
-    url:
-      process.env.NODE_ENV === 'production'
-        ? 'wss://video.simplecontacts.com/recorder'
-        : 'wss://localhost:8088/recorder',
+    url: 'wss://video-staging.simplecontacts.com/recorder',
     userId: name,
     videoStream,
   });
