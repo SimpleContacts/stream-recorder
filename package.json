@@ -24,15 +24,15 @@
   "devDependencies": {
     "@babel/cli": "^7.5.5",
     "@babel/core": "^7.5.5",
+    "@babel/node": "^7.7.4",
     "@babel/plugin-transform-flow-strip-types": "^7.4.4",
     "@babel/plugin-transform-modules-commonjs": "^7.5.0",
-    "@simple-contacts/eslint-config": "^0.1.5",
-    "flow-bin": "^0.105.2",
+    "@simple-contacts/eslint-config": "^2.3.2",
+    "flow-bin": "^0.113.0",
     "html-webpack-plugin": "^3.2.0",
-    "jest": "^24.8.0",
-    "prettier": "^1.18.2",
-    "webpack": "^4.1.1",
-    "webpack-cli": "^2.0.11",
-    "webpack-dev-server": "^3.1.1"
+    "jest": "^24.9.0",
+    "webpack": "^4.41.2",
+    "webpack-cli": "^3.3.10",
+    "webpack-dev-server": "^3.9.0"
   }
 }
