@@ -48,8 +48,9 @@ You can make sure everything is running as intended staging: https://recorder-ma
 ### Running locally
 
 1. Install required system level dependencies (i.e. nginx and node) by running `./bin/bootstrap`.
-2. Download and install Docker: https://www.docker.com/community-edition#/download .
-3. Run `yarn start-kurento` (8888).
-4. In a new terminal window, run `yarn start`, to run server (8443) and web client (8080).
-5. In a new terminal window, run `yarn start-nginx`, to reverse proxy all our services with SSL using dummy key.
-6. Open https://localhost:8088/admin to test
+2. Setup direnv by running `direnv allow`.
+3. Download and install Docker: https://www.docker.com/community-edition#/download .
+4. Run `start-kurento` (8888).
+5. In a new terminal window, run `start-web`, to run server (8443) and web client (8080).
+6. Make certain nginx is not already running (i.e. `sudo nginx -s stop`). Then, in a new terminal window, run `start-nginx`, to reverse proxy all our services with SSL using dummy key.
+7. Open https://localhost:8088/admin to test
