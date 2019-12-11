@@ -130,6 +130,8 @@ export default ({ url, userId, videoStream }) =>
 
           /** From callee or caller **/
           case 'hangup':
+            ws.close();
+            pc.close();
             return resolveHangup();
           case 'registerSuccess':
             return resolveRegister();
@@ -215,12 +217,20 @@ export default ({ url, userId, videoStream }) =>
 
     async function waitForDisconnect() {
       await resolveHangupPromise;
-      pc.close();
     }
 
     ws.onopen = async () => {
       sendMessage({ id: 'register', name: userId });
       await registerPromise;
-      resolveStreamer({ call, waitForCall, waitForDisconnect });
+      resolveStreamer({
+        call,
+        waitForCall,
+        waitForDisconnect,
+        hangup: () => {
+          ws.close();
+          pc.close();
+          resolveHangup();
+        },
+      });
     };
   });
