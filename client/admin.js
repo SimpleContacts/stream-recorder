@@ -118,6 +118,14 @@ const testCall = async (wrapperDiv, isCaller) => {
     video.play();
   }
 
+  const hangupButton = document.createElement('button');
+  hangupButton.innerHTML = 'Hang Up';
+  hangupButton.addEventListener('click', () => {
+    chat.hangup();
+  });
+
+  div.appendChild(hangupButton);
+
   await chat.waitForDisconnect();
 
   div.innerHTML = `The caller disconnected.`;
