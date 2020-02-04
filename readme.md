@@ -42,10 +42,6 @@ Stopping the recorder:
  }, 'http://some-url-to-post-video.com');
 ```
 
-### Health Check
-
-You can make sure everything is running as intended staging: https://recorder-master.stage.simplecontacts.com
-
 ### Running locally
 
 1. Download and install Docker: https://www.docker.com/community-edition#/download . Install nginx with homebrew `brew install nginx`
