@@ -1,3 +1,7 @@
+# Stream Recorder
+
+This project allows recording of local video in Safari on desktop and mobile devices. Other web browsers enable recording of audio and video with the [MediaStream Recording API](https://developer.mozilla.org/en-US/docs/Web/API/MediaStream_Recording_API). Safari had no support for this API until [very recently](https://blog.addpipe.com/safari-technology-preview-73-adds-limited-mediastream-recorder-api-support/). Rather than generating a media file within this browser, the audio/video is transmitted via WebRTC to a server running Kurento Media Server and the file will be generated on the server. With the API, you can provide a postback URL for the server to post the file too.
+
 ## So you've decided to check out the stream-recorder repository?
 
 Turn back while you still can!
